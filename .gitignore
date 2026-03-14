@@ -1,0 +1,17 @@
+# Backend local state
+backend/venv/
+backend/__pycache__/
+backend/*.db
+
+# Python cache
+*.py[cod]
+__pycache__/
+.pytest_cache/
+
+# Environment files
+.env
+.env.*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
