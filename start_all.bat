@@ -1,9 +1,8 @@
 @echo off
-echo Starting Redis (make sure Redis is installed and running on default port or start via WSL/Docker if not installed natively!)
-echo Alternatively, install memurai or redis-windows if you haven't.
+echo Starting Redis (make sure Redis or Memurai is running on port 6379)
 
-echo Starting QuickQ Backend (FastAPI)...
-start cmd /k "cd %~dp0backend && .\venv\Scripts\activate && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+echo Starting QuickQ Backend (Spring Boot)...
+start cmd /k "cd %~dp0backend && mvn spring-boot:run"
 
 echo Starting QuickQ Admin Frontend (React)...
 start cmd /k "cd %~dp0admin-frontend && npm run dev"
@@ -15,4 +14,6 @@ echo All services starting!
 echo - Backend: http://localhost:8000
 echo - Admin Dashboard: http://localhost:5173
 echo - Client Web App: http://localhost:5174
+echo.
+echo Note: Maven must be installed for the Java backend command to work.
 pause

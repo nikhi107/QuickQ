@@ -1,6 +1,6 @@
 # QuickQ: Smart Queue Management System
 
-A high-performance, real-time smart queue management system capable of handling 100+ concurrent users with sub-50ms queue state updates. Built as a full-stack solution featuring a Python/FastAPI backend and two React/Vite frontends (Admin Dashboard and Client Web App).
+A high-performance, real-time smart queue management system capable of handling 100+ concurrent users with sub-50ms queue state updates. Built as a full-stack solution featuring a Java/Spring Boot backend and two React/Vite frontends (Admin Dashboard and Client Web App).
 
 ## 🌟 Key Features
 
@@ -8,7 +8,7 @@ A high-performance, real-time smart queue management system capable of handling 
 *   **Real-time WebSockets**: Live progress tracking and immediate notifications for both clients and administrators without needing to refresh pages.
 *   **Premium Admin Dashboard**: Built with React, Vite, and Tailwind CSS. Features dynamic queue visualization, statistics, and 1-click controls to call the next person in line.
 *   **Responsive Client Web App**: Built with React and Vite, providing a seamless experience for users to join lines, monitor their position, and get accurate wait-time estimations on any device.
-*   **Highly Scalable Backend**: Driven by FastAPI (Python), utilizing PostgreSQL/SQLite for user history analytics and asynchronous operations to smoothly handle large volumes of simultaneous queue requests.
+*   **Highly Scalable Backend**: Driven by Spring Boot (Java), utilizing Redis for live queue state and SQLite for user history analytics.
 *   **Secure Administration**: Features JWT token-based authentication for the admin panel.
 
 ---
@@ -17,7 +17,7 @@ A high-performance, real-time smart queue management system capable of handling 
 
 This repository is intuitively structured into three standalone components:
 
-1.  **`/backend`**: The Python FastAPI server handling the logic, WebSockets, Redis, and Database connections.
+1.  **`/backend`**: The Java Spring Boot server handling the logic, WebSockets, Redis, and Database connections.
 2.  **`/admin-frontend`**: The React.js web application for staff and administrators.
 3.  **`/client-frontend`**: The React.js responsive web application designed for the end-users.
 
@@ -28,7 +28,8 @@ This repository is intuitively structured into three standalone components:
 ### Prerequisites
 
 *   [Node.js](https://nodejs.org/) (v16+)
-*   [Python](https://www.python.org/) 3.10+
+*   Java 21+
+*   [Apache Maven](https://maven.apache.org/) 3.9+
 *   **Redis**: You *must* have Redis installed and running locally on port `6379`.
     *   *Windows*: Install via [WSL](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/install-redis-on-windows/), [Docker](https://hub.docker.com/_/redis), or use [Memurai](https://www.memurai.com/).
     *   *Mac/Linux*: Install via Homebrew `brew install redis` or `apt-get install redis-server`.
@@ -52,19 +53,8 @@ If you prefer to start the services manually or are on Mac/Linux, follow these s
 ```bash
 cd backend
 
-# Create a virtual environment
-python -m venv venv
-
-# Activate it (Windows)
-.\venv\Scripts\activate
-# Activate it (Mac/Linux)
-# source venv/bin/activate
-
-# Install dependencies
-pip install fastapi uvicorn redis websockets pydantic sqlalchemy psycopg2-binary pyjwt bcrypt python-multipart
-
 # Run the server
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+mvn spring-boot:run
 ```
 
 #### 2. Admin Frontend Setup
@@ -105,7 +95,7 @@ npm run dev
 
 1. **Access the app**: Open `http://localhost:5174` in your browser.
 2. **Join a Queue**: 
-   * Pre-fill the Queue ID using the "Scan Clinic QR Code" button or manually type the ID you wish to join (e.g., `main-clinic` - this must match the Admin Dashboard).
+   * Select the queue you want to join from the dropdown (for example, `Main Clinic`).
    * Enter your Name.
    * Click "Get Ticket".
 3. **Wait in line**: The app will transition to a live-updating screen showing your **current position** in line and your **estimated wait time**.

@@ -1,7 +1,9 @@
 # Backend local state
-backend/venv/
-backend/__pycache__/
+backend/target/
 backend/*.db
+backend/*.log
+backend/*.out.log
+backend/*.err.log
 
 # Python cache
 *.py[cod]
