@@ -14,7 +14,7 @@ This is the primary Spring Boot backend for QuickQ. It keeps the same API and We
 
 ## Endpoints
 
-- `POST /admin/signup`
+- `POST /admin/signup` when enabled by backend config
 - `POST /admin/login`
 - `GET /analytics/history`
 - `POST /queue/{queueId}/join`
@@ -49,6 +49,17 @@ The backend now supports environment-driven runtime configuration. The most usef
 - `QUICKQ_BOOTSTRAP_ADMIN_ENABLED`
 - `QUICKQ_BOOTSTRAP_ADMIN_USERNAME`
 - `QUICKQ_BOOTSTRAP_ADMIN_PASSWORD`
+- `QUICKQ_ADMIN_SIGNUP_ENABLED`
+- `QUICKQ_ADMIN_SIGNUP_INVITE_CODE`
+
+## Admin Signup Policy
+
+Public admin signup is now disabled by default.
+
+If you want to allow admin creation outside the bootstrap admin flow, set:
+
+- `QUICKQ_ADMIN_SIGNUP_ENABLED=true`
+- `QUICKQ_ADMIN_SIGNUP_INVITE_CODE=<your-secret-code>` for invite-only signup
 
 Example PowerShell session:
 

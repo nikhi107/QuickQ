@@ -10,6 +10,7 @@ public class AppProperties {
     private final Security security = new Security();
     private final Cors cors = new Cors();
     private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
+    private final Admin admin = new Admin();
 
     public Security getSecurity() {
         return security;
@@ -21,6 +22,10 @@ public class AppProperties {
 
     public BootstrapAdmin getBootstrapAdmin() {
         return bootstrapAdmin;
+    }
+
+    public Admin getAdmin() {
+        return admin;
     }
 
     public static class Security {
@@ -102,6 +107,37 @@ public class AppProperties {
 
         public void setPassword(String password) {
             this.password = password;
+        }
+    }
+
+    public static class Admin {
+
+        private final Signup signup = new Signup();
+
+        public Signup getSignup() {
+            return signup;
+        }
+    }
+
+    public static class Signup {
+
+        private boolean enabled = false;
+        private String inviteCode = "";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getInviteCode() {
+            return inviteCode;
+        }
+
+        public void setInviteCode(String inviteCode) {
+            this.inviteCode = inviteCode;
         }
     }
 }

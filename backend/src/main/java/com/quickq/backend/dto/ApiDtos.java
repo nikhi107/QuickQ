@@ -7,7 +7,7 @@ public final class ApiDtos {
     private ApiDtos() {
     }
 
-    public record AdminSignupRequest(String username, String password) {
+    public record AdminSignupRequest(String username, String password, String inviteCode) {
     }
 
     public record AuthResponse(String accessToken, String tokenType) {

@@ -86,7 +86,7 @@ npm run dev
 ### For Administrators (Using the Admin Dashboard)
 
 1. **Access the Dashboard**: Open your browser and navigate to `http://localhost:5173`.
-2. **Login**: Login with credentials `admin` / `admin123` or create a new account via the Signup toggle.
+2. **Login**: Login with the bootstrap admin credentials configured for the backend, or use an explicitly enabled admin signup flow.
 3. **Select a Queue**: Use the dropdown on the left side to switch between different operational queues (e.g., "Main Clinic", "Pharmacy").
 4. **Monitor Live Status**: The right panel displays the live "Waiting Line Queue." You can see exactly who is in line, their assigned ticket number, and total users waiting.
 5. **Call the Next Person**: Click the large purple **"Call Next Person"** button on the left panel. The person at the front of the line will instantly be removed from the queue and highlighted in the "Currently Serving" box.
