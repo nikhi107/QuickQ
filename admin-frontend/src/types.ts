@@ -19,6 +19,7 @@ export interface QueueStatus {
     active_users: User[];
     total_waiting: number;
     serving_user?: User | null;
+    average_wait_time_seconds?: number;
 }
 
 export interface Metrics {

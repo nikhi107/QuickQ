@@ -55,7 +55,8 @@ public class QueueService {
     public ApiDtos.QueueStatusResponse getQueueStatus(String queueId) {
         List<ApiDtos.QueueUser> activeUsers = getActiveUsers(queueId);
         ApiDtos.QueueUser servingUser = getServingUser(queueId);
-        return new ApiDtos.QueueStatusResponse(queueId, activeUsers, activeUsers.size(), servingUser);
+        Double avg = userHistoryRepository.averageWaitTimeSecondsByQueueId(queueId);
+        return new ApiDtos.QueueStatusResponse(queueId, activeUsers, activeUsers.size(), servingUser, avg == null ? 0.0 : avg);
     }
 
     @Transactional
@@ -122,7 +123,8 @@ public class QueueService {
     public ApiDtos.QueueUpdateMessage buildQueueUpdateMessage(String queueId) {
         List<ApiDtos.QueueUser> activeUsers = getActiveUsers(queueId);
         ApiDtos.QueueUser servingUser = getServingUser(queueId);
-        return new ApiDtos.QueueUpdateMessage("QUEUE_UPDATE", queueId, activeUsers, activeUsers.size(), servingUser);
+        Double avg = userHistoryRepository.averageWaitTimeSecondsByQueueId(queueId);
+        return new ApiDtos.QueueUpdateMessage("QUEUE_UPDATE", queueId, activeUsers, activeUsers.size(), servingUser, avg == null ? 0.0 : avg);
     }
 
     public void broadcastQueueUpdate(String queueId) {

@@ -706,7 +706,7 @@ function App() {
                             <div className="mt-1">
                               {index === 0
                                 ? 'Keep counter ready for the next walk-in.'
-                                : `Estimated turn after ${Math.max(index * 3, 3)} min.`}
+                                : `Estimated turn after ${index * (todayAvgWaitMinutes || 3)} min.`}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 justify-end mt-1">

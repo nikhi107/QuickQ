@@ -27,13 +27,6 @@ const loadStoredSession = (): QueueSession | null => {
     return null;
   }
 
-
-const loadStoredSession = (): QueueSession | null => {
-  const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
   try {
     const parsed = JSON.parse(raw) as Partial<QueueSession>;
     if (!parsed.queueId || !parsed.name || !parsed.userId) {
@@ -62,10 +55,12 @@ function App() {
 
   const [position, setPosition] = useState<number | null>(null);
   const [totalWaiting, setTotalWaiting] = useState(0);
+  const [avgWaitTimeSeconds, setAvgWaitTimeSeconds] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
   const selectedQueue = queues.find((queue) => queue.queue_id === queueId) ?? null;
+  const estimatedWaitMinutes = Math.max(1, Math.round((position || 1) * (avgWaitTimeSeconds > 0 ? avgWaitTimeSeconds / 60 : 3)));
 
   const clearSession = () => {
     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -146,6 +141,9 @@ function App() {
         const data = JSON.parse(event.data);
         if (data.type === 'QUEUE_UPDATE') {
           setTotalWaiting(data.total_waiting);
+          if (data.average_wait_time_seconds !== undefined) {
+            setAvgWaitTimeSeconds(data.average_wait_time_seconds);
+          }
           fetchPosition();
         }
       } catch (e) {
@@ -165,7 +163,10 @@ function App() {
 
     fetch(`${API_BASE}/queue/${queueId}/status`)
       .then((response) => response.json())
-      .then((data) => setTotalWaiting(data.total_waiting ?? 0))
+      .then((data) => {
+        setTotalWaiting(data.total_waiting ?? 0);
+        setAvgWaitTimeSeconds(data.average_wait_time_seconds ?? 0);
+      })
       .catch((err) => console.error('Error fetching queue status', err));
 
     fetchPosition();
@@ -345,7 +346,7 @@ function App() {
                     <Clock3 className="h-4 w-4" />
                     <span className="text-xs uppercase tracking-[0.2em]">Estimated Wait</span>
                   </div>
-                  <div className="mt-4 text-4xl font-semibold text-white">~{(position || 1) * 3}m</div>
+                  <div className="mt-4 text-4xl font-semibold text-white">~{estimatedWaitMinutes}m</div>
                   <p className="mt-2 text-sm text-[#d7ccb7]">Approximate and refreshed with queue movement.</p>
                 </div>
               </div>
@@ -470,7 +471,7 @@ function App() {
                         </div>
                         <div className="rounded-[24px] border border-[#e6dcc9] bg-white p-5">
                           <p className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">Estimated Wait</p>
-                          <div className="mt-2 text-3xl font-semibold text-slate-900">~{(position || 1) * 3}m</div>
+                          <div className="mt-2 text-3xl font-semibold text-slate-900">~{estimatedWaitMinutes}m</div>
                         </div>
                       </div>
 
