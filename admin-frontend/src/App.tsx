@@ -10,7 +10,7 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react';
-import type { CallNextResponse, QueueDefinition, QueueStatus, User } from './types';
+import type { AnalyticsSplitResponse, CallNextResponse, QueueDefinition, QueueStatus, User } from './types';
 import { API_BASE, WS_BASE } from './config';
 
 function App() {
@@ -25,9 +25,9 @@ function App() {
   const [status, setStatus] = useState<QueueStatus | null>(null);
   const [calledUser, setCalledUser] = useState<User | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [analytics, setAnalytics] = useState({
-    average_wait_time_seconds: 0,
-    total_served: 0,
+  const [analytics, setAnalytics] = useState<AnalyticsSplitResponse>({
+    all_time: { average_wait_time_seconds: 0, total_served: 0 },
+    today: { average_wait_time_seconds: 0, total_served: 0 },
   });
   const [isManagingQueues, setIsManagingQueues] = useState(false);
   const [newQueue, setNewQueue] = useState({
@@ -43,7 +43,8 @@ function App() {
 
   const selectedQueue = queues.find((queue) => queue.queue_id === queueId) ?? null;
   const totalWaiting = status?.total_waiting ?? 0;
-  const avgWaitMinutes = Math.max(0, Math.round(analytics.average_wait_time_seconds / 60));
+  const allTimeAvgWaitMinutes = Math.max(0, Math.round(analytics.all_time.average_wait_time_seconds / 60));
+  const todayAvgWaitMinutes = Math.max(0, Math.round(analytics.today.average_wait_time_seconds / 60));
   const todayLabel = new Intl.DateTimeFormat('en-IN', {
     weekday: 'long',
     month: 'long',
@@ -90,12 +91,12 @@ function App() {
   }, [token]);
 
   const fetchAnalytics = async () => {
-    if (!token) {
+    if (!token || !queueId) {
       return;
     }
 
     try {
-      const resp = await fetch(`${API_BASE}/analytics/history`, {
+      const resp = await fetch(`${API_BASE}/analytics/queue/${queueId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -585,31 +586,49 @@ function App() {
 
               <div className="space-y-4">
                 <div className="rounded-3xl border border-[#e3d8c5] bg-[#fbf8f1] p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">All-Time Avg Wait</p>
-                      <div className="mt-2 flex items-end gap-2">
-                        <span className="text-3xl font-semibold text-slate-900">{avgWaitMinutes}</span>
-                        <span className="pb-1 text-sm text-slate-500">mins</span>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#ddece8] text-[#16524b]">
+                      <Clock3 className="h-5 w-5" />
+                    </div>
+                    <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-[#8d7652]">Average Wait Time</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/60 p-3 rounded-2xl border border-[#efe9dc]">
+                      <p className="text-[10px] uppercase tracking-wider text-[#a08f72] mb-1">Today</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-slate-900">{todayAvgWaitMinutes}</span>
+                        <span className="text-xs text-slate-500 font-medium">min</span>
                       </div>
                     </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#ddece8] text-[#16524b]">
-                      <Clock3 className="h-5 w-5" />
+                    <div className="bg-white/60 p-3 rounded-2xl border border-[#efe9dc]">
+                      <p className="text-[10px] uppercase tracking-wider text-[#a08f72] mb-1">All-time</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-semibold text-slate-700">{allTimeAvgWaitMinutes}</span>
+                        <span className="text-xs text-slate-500 font-medium">min</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="rounded-3xl border border-[#e3d8c5] bg-[#fbf8f1] p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">All-Time Served</p>
-                      <div className="mt-2 flex items-end gap-2">
-                        <span className="text-3xl font-semibold text-slate-900">{analytics.total_served}</span>
-                        <span className="pb-1 text-sm text-slate-500">patients</span>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#efe7d3] text-[#9a6b14]">
+                      <Users className="h-5 w-5" />
+                    </div>
+                    <span className="text-[11px] uppercase tracking-[0.2em] font-bold text-[#8d7652]">Total Served</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/60 p-3 rounded-2xl border border-[#efe9dc]">
+                      <p className="text-[10px] uppercase tracking-wider text-[#a08f72] mb-1">Today</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-bold text-slate-900">{analytics.today.total_served}</span>
                       </div>
                     </div>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#efe7d3] text-[#9a6b14]">
-                      <Users className="h-5 w-5" />
+                    <div className="bg-white/60 p-3 rounded-2xl border border-[#efe9dc]">
+                      <p className="text-[10px] uppercase tracking-wider text-[#a08f72] mb-1">All-time</p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-semibold text-slate-700">{analytics.all_time.total_served}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

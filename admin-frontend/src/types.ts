@@ -21,6 +21,16 @@ export interface QueueStatus {
     serving_user?: User | null;
 }
 
+export interface Metrics {
+    average_wait_time_seconds: number;
+    total_served: number;
+}
+
+export interface AnalyticsSplitResponse {
+    all_time: Metrics;
+    today: Metrics;
+}
+
 export interface CallNextResponse {
     queue_id: string;
     called_user: User | null;

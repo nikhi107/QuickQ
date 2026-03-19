@@ -47,7 +47,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/queue/**", "/ws/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/queue/*/join", "/queue/*/leave/*").permitAll()
                 .requestMatchers(HttpMethod.POST, "/queue/*/next").authenticated()
-                .requestMatchers("/analytics/history").authenticated()
+                .requestMatchers("/analytics/history", "/analytics/queue/*").authenticated()
                 .requestMatchers(HttpMethod.POST, "/admin/queues", "/admin/queue/*/requeue/*", "/admin/queue/*/clear-serving").authenticated()
                 .anyRequest().permitAll()
             )

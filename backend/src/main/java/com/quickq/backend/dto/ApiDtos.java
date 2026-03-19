@@ -56,6 +56,12 @@ public final class ApiDtos {
     public record AnalyticsResponse(double averageWaitTimeSeconds, long totalServed) {
     }
 
+    public record Metrics(double averageWaitTimeSeconds, long totalServed) {
+    }
+
+    public record AnalyticsSplitResponse(Metrics allTime, Metrics today) {
+    }
+
     public record MessageResponse(String message) {
     }
 
