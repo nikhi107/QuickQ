@@ -44,7 +44,7 @@ public final class ApiDtos {
     public record QueueUser(String userId, String name, String ticketNumber) {
     }
 
-    public record QueueStatusResponse(String queueId, List<QueueUser> activeUsers, int totalWaiting) {
+    public record QueueStatusResponse(String queueId, List<QueueUser> activeUsers, int totalWaiting, QueueUser servingUser) {
     }
 
     public record CallNextResponse(String queueId, QueueUser calledUser, int remainingWaiting) {
@@ -59,6 +59,6 @@ public final class ApiDtos {
     public record MessageResponse(String message) {
     }
 
-    public record QueueUpdateMessage(String type, String queueId, List<QueueUser> activeUsers, int totalWaiting) {
+    public record QueueUpdateMessage(String type, String queueId, List<QueueUser> activeUsers, int totalWaiting, QueueUser servingUser) {
     }
 }

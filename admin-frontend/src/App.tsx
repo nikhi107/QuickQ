@@ -137,13 +137,21 @@ function App() {
           active_users: data.active_users,
           total_waiting: data.total_waiting,
         });
+        if (data.serving_user !== undefined) {
+          setCalledUser(data.serving_user);
+        }
         fetchAnalytics();
       }
     };
 
     fetch(`${API_BASE}/queue/${queueId}/status`)
       .then((res) => res.json())
-      .then((data) => setStatus(data))
+      .then((data) => {
+        setStatus(data);
+        if (data.serving_user !== undefined) {
+          setCalledUser(data.serving_user);
+        }
+      })
       .catch((err) => console.error('Error fetching status:', err));
 
     return () => {

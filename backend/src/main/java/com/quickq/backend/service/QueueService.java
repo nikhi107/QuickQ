@@ -54,7 +54,8 @@ public class QueueService {
 
     public ApiDtos.QueueStatusResponse getQueueStatus(String queueId) {
         List<ApiDtos.QueueUser> activeUsers = getActiveUsers(queueId);
-        return new ApiDtos.QueueStatusResponse(queueId, activeUsers, activeUsers.size());
+        ApiDtos.QueueUser servingUser = getServingUser(queueId);
+        return new ApiDtos.QueueStatusResponse(queueId, activeUsers, activeUsers.size(), servingUser);
     }
 
     @Transactional
@@ -63,6 +64,7 @@ public class QueueService {
         ApiDtos.QueueUser calledUser = null;
 
         if (nextUserId != null) {
+            redisTemplate.opsForValue().set("queue:" + queueId + ":serving", nextUserId);
             Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(nextUserId));
             String name = userData.getOrDefault("name", "Unknown").toString();
             String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
@@ -108,7 +110,8 @@ public class QueueService {
 
     public ApiDtos.QueueUpdateMessage buildQueueUpdateMessage(String queueId) {
         List<ApiDtos.QueueUser> activeUsers = getActiveUsers(queueId);
-        return new ApiDtos.QueueUpdateMessage("QUEUE_UPDATE", queueId, activeUsers, activeUsers.size());
+        ApiDtos.QueueUser servingUser = getServingUser(queueId);
+        return new ApiDtos.QueueUpdateMessage("QUEUE_UPDATE", queueId, activeUsers, activeUsers.size(), servingUser);
     }
 
     public void broadcastQueueUpdate(String queueId) {
@@ -129,6 +132,18 @@ public class QueueService {
                 return new ApiDtos.QueueUser(userId, name, ticketNumber);
             })
             .toList();
+    }
+
+    private ApiDtos.QueueUser getServingUser(String queueId) {
+        String servingUserId = redisTemplate.opsForValue().get("queue:" + queueId + ":serving");
+        if (servingUserId == null) return null;
+        
+        Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(servingUserId));
+        if (userData.isEmpty()) return null;
+        
+        String name = userData.getOrDefault("name", "Unknown").toString();
+        String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
+        return new ApiDtos.QueueUser(servingUserId, name, ticketNumber);
     }
 
     private String queueKey(String queueId) {

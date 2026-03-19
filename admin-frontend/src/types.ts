@@ -18,6 +18,7 @@ export interface QueueStatus {
     queue_id: string;
     active_users: User[];
     total_waiting: number;
+    serving_user?: User | null;
 }
 
 export interface CallNextResponse {
