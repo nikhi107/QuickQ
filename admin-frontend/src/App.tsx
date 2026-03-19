@@ -29,6 +29,17 @@ function App() {
     average_wait_time_seconds: 0,
     total_served: 0,
   });
+  const [isManagingQueues, setIsManagingQueues] = useState(false);
+  const [newQueue, setNewQueue] = useState({
+    queue_id: '',
+    display_name: '',
+    admin_subtitle: '',
+    client_description: '',
+    counter_label: '',
+    accent_from: '#475569',
+    accent_to: '#334155'
+  });
+  const [isCreatingQueue, setIsCreatingQueue] = useState(false);
 
   const selectedQueue = queues.find((queue) => queue.queue_id === queueId) ?? null;
   const totalWaiting = status?.total_waiting ?? 0;
@@ -225,6 +236,48 @@ function App() {
     }
   };
 
+  const handleCreateQueue = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setIsCreatingQueue(true);
+    try {
+      const resp = await fetch(`${API_BASE}/admin/queues`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          queueId: newQueue.queue_id,
+          displayName: newQueue.display_name,
+          adminSubtitle: newQueue.admin_subtitle,
+          clientDescription: newQueue.client_description,
+          counterLabel: newQueue.counter_label,
+          accentFrom: newQueue.accent_from,
+          accentTo: newQueue.accent_to
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setQueues([...queues, data]);
+        setQueueId(data.queue_id);
+        setIsManagingQueues(false);
+        setNewQueue({
+          queue_id: '', display_name: '', admin_subtitle: '',
+          client_description: '', counter_label: '',
+          accent_from: '#475569', accent_to: '#334155'
+        });
+      } else {
+        const errData = await resp.json();
+        alert(errData.detail || errData.message || 'Failed to create queue');
+      }
+    } catch (err) {
+      alert('Network error while creating queue.');
+    } finally {
+      setIsCreatingQueue(false);
+    }
+  };
+
   if (!token) {
     return (
       <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(18,84,78,0.18),_transparent_30%),linear-gradient(180deg,_#f5efe3_0%,_#efe7d8_100%)] px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
@@ -399,7 +452,9 @@ function App() {
                     {selectedQueue?.display_name ?? 'No Queue Configured'}
                   </h2>
                 </div>
-                <Settings2 className="h-5 w-5 text-[#8d7652]" />
+                <button onClick={() => setIsManagingQueues(true)} className="rounded-full bg-[#fbf8f1] p-2 hover:bg-[#f3eedd] transition">
+                  <Settings2 className="h-5 w-5 text-[#8d7652]" />
+                </button>
               </div>
 
               <p className="mb-5 text-sm leading-6 text-slate-600">
@@ -589,6 +644,47 @@ function App() {
           </section>
         </main>
       </div>
+
+      {isManagingQueues && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg overflow-hidden rounded-[32px] bg-white shadow-2xl">
+            <div className="border-b border-slate-100 bg-slate-50 px-6 py-5">
+              <h3 className="admin-display text-2xl text-slate-900">Manage Queues</h3>
+              <p className="mt-1 text-sm text-slate-500">Create a new service desk queue</p>
+            </div>
+            <form onSubmit={handleCreateQueue} className="p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Queue ID</span>
+                  <input type="text" required value={newQueue.queue_id} onChange={(e) => setNewQueue({ ...newQueue, queue_id: e.target.value })} placeholder="e.g. pharmacy" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-[#153f3a] focus:ring-2 focus:ring-[#153f3a]/20" />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Display Name</span>
+                  <input type="text" required value={newQueue.display_name} onChange={(e) => setNewQueue({ ...newQueue, display_name: e.target.value })} placeholder="e.g. Pharmacy Desk" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-[#153f3a] focus:ring-2 focus:ring-[#153f3a]/20" />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Label</span>
+                  <input type="text" required value={newQueue.counter_label} onChange={(e) => setNewQueue({ ...newQueue, counter_label: e.target.value })} placeholder="e.g. Counter 3" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-[#153f3a] focus:ring-2 focus:ring-[#153f3a]/20" />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Subtitle</span>
+                  <input type="text" required value={newQueue.admin_subtitle} onChange={(e) => setNewQueue({ ...newQueue, admin_subtitle: e.target.value })} placeholder="e.g. Prescription pickup" className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-[#153f3a] focus:ring-2 focus:ring-[#153f3a]/20" />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500">Description</span>
+                  <input type="text" required value={newQueue.client_description} onChange={(e) => setNewQueue({ ...newQueue, client_description: e.target.value })} placeholder="e.g. For picking up ready prescriptions." className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-[#153f3a] focus:ring-2 focus:ring-[#153f3a]/20" />
+                </label>
+              </div>
+              <div className="mt-8 flex justify-end gap-3">
+                <button type="button" onClick={() => setIsManagingQueues(false)} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button type="submit" disabled={isCreatingQueue} className="rounded-xl bg-[#153f3a] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0f2d29] disabled:opacity-50">
+                  {isCreatingQueue ? 'Creating...' : 'Create Queue'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

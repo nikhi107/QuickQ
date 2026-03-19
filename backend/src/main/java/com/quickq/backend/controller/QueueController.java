@@ -29,6 +29,11 @@ public class QueueController {
         return queueCatalogService.listQueues();
     }
 
+    @PostMapping("/admin/queues")
+    public ApiDtos.QueueDefinitionResponse createQueue(@RequestBody ApiDtos.CreateQueueRequest request) {
+        return queueCatalogService.createQueue(request);
+    }
+
     @PostMapping("/queue/{queueId}/join")
     public Map<String, Object> joinQueue(
         @PathVariable String queueId,

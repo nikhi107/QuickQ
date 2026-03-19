@@ -30,6 +30,25 @@ public class QueueCatalogService {
         }
     }
 
+    public ApiDtos.QueueDefinitionResponse createQueue(ApiDtos.CreateQueueRequest request) {
+        if (queueDefinitionRepository.existsById(request.queueId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Queue ID already exists");
+        }
+        
+        QueueDefinition def = new QueueDefinition();
+        def.setQueueId(request.queueId());
+        def.setDisplayName(request.displayName());
+        def.setAdminSubtitle(request.adminSubtitle());
+        def.setClientDescription(request.clientDescription());
+        def.setCounterLabel(request.counterLabel());
+        def.setAccentFrom(request.accentFrom());
+        def.setAccentTo(request.accentTo());
+        def.setActive(true);
+        def.setSortOrder(0);
+        
+        return toResponse(queueDefinitionRepository.save(def));
+    }
+
     private ApiDtos.QueueDefinitionResponse toResponse(QueueDefinition queueDefinition) {
         return new ApiDtos.QueueDefinitionResponse(
             queueDefinition.getQueueId(),
