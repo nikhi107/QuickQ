@@ -16,6 +16,17 @@ public final class ApiDtos {
     public record JoinQueueRequest(String userId, String name) {
     }
 
+    public record QueueDefinitionResponse(
+        String queueId,
+        String displayName,
+        String adminSubtitle,
+        String clientDescription,
+        String counterLabel,
+        String accentFrom,
+        String accentTo
+    ) {
+    }
+
     public record QueueUser(String userId, String name) {
     }
 

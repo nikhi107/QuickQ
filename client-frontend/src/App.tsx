@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Activity, XCircle, Clock, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Activity, Clock3, Ticket, Users, XCircle } from 'lucide-react';
 import { API_BASE, WS_BASE } from './config';
 
 const SESSION_STORAGE_KEY = 'quickq-client-session';
@@ -8,6 +8,16 @@ type QueueSession = {
   queueId: string;
   name: string;
   userId: string;
+};
+
+type QueueDefinition = {
+  queue_id: string;
+  display_name: string;
+  admin_subtitle: string;
+  client_description: string;
+  counter_label: string;
+  accent_from: string;
+  accent_to: string;
 };
 
 const loadStoredSession = (): QueueSession | null => {
@@ -21,6 +31,7 @@ const loadStoredSession = (): QueueSession | null => {
     if (!parsed.queueId || !parsed.name || !parsed.userId) {
       return null;
     }
+
     return {
       queueId: parsed.queueId,
       name: parsed.name,
@@ -37,13 +48,14 @@ function App() {
   const [name, setName] = useState(initialSession?.name ?? '');
   const [userId, setUserId] = useState(initialSession?.userId ?? '');
   const [isInQueue, setIsInQueue] = useState(Boolean(initialSession));
+  const [queues, setQueues] = useState<QueueDefinition[]>([]);
 
   const [position, setPosition] = useState<number | null>(null);
   const [totalWaiting, setTotalWaiting] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
-  const wsRef = useRef<WebSocket | null>(null);
+  const selectedQueue = queues.find((queue) => queue.queue_id === queueId) ?? null;
 
   const clearSession = () => {
     localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -54,14 +66,70 @@ function App() {
   };
 
   useEffect(() => {
-    if (!isInQueue || !userId) return;
+    let isCancelled = false;
+
+    const fetchQueues = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/queues`);
+        if (!response.ok) {
+          throw new Error(`Failed to load queues: ${response.status}`);
+        }
+
+        const data: QueueDefinition[] = await response.json();
+        if (isCancelled) {
+          return;
+        }
+
+        setQueues(data);
+        setQueueId((currentQueueId) => {
+          if (data.some((queue) => queue.queue_id === currentQueueId)) {
+            return currentQueueId;
+          }
+
+          return data[0]?.queue_id ?? '';
+        });
+      } catch (error) {
+        if (!isCancelled) {
+          console.error('Error fetching queues:', error);
+          setQueues([]);
+          setQueueId('');
+        }
+      }
+    };
+
+    fetchQueues();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (queueId && queues.some((queue) => queue.queue_id === queueId)) {
+      return;
+    }
+
+    if (queues.length === 0) {
+      return;
+    }
+
+    clearSession();
+    setIsInQueue(false);
+    setUserId('');
+    setPosition(null);
+    setTotalWaiting(0);
+    setQueueId(queues[0]?.queue_id ?? '');
+  }, [queueId, queues]);
+
+  useEffect(() => {
+    if (!isInQueue || !userId) {
+      return;
+    }
 
     const ws = new WebSocket(`${WS_BASE}/ws/queue/${queueId}`);
 
-    ws.onopen = () => {
-      setIsConnected(true);
-    };
-
+    ws.onopen = () => setIsConnected(true);
+    ws.onclose = () => setIsConnected(false);
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -70,15 +138,9 @@ function App() {
           fetchPosition();
         }
       } catch (e) {
-        console.error("Error parsing WS data", e);
+        console.error('Error parsing WS data', e);
       }
     };
-
-    ws.onclose = () => {
-      setIsConnected(false);
-    };
-
-    wsRef.current = ws;
 
     return () => {
       ws.close();
@@ -115,17 +177,22 @@ function App() {
         }
       }
     } catch (err) {
-      console.error("Error fetching position", err);
+      console.error('Error fetching position', err);
     }
   };
 
-  const generateUserId = () => {
-    return Math.random().toString(36).substring(2, 9);
-  };
+  const generateUserId = () => Math.random().toString(36).substring(2, 9);
 
   const handleJoinQueue = async () => {
-    if (!name.trim()) return alert("Please enter your name first.");
-    if (!queueId.trim()) return alert("Please enter a queue ID.");
+    if (!name.trim()) {
+      alert('Please enter your name first.');
+      return;
+    }
+
+    if (!queueId.trim()) {
+      alert('Please choose a queue.');
+      return;
+    }
 
     setIsLoading(true);
     const newUserId = generateUserId();
@@ -134,7 +201,7 @@ function App() {
       const response = await fetch(`${API_BASE}/queue/${queueId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: newUserId, name: name.trim() })
+        body: JSON.stringify({ user_id: newUserId, name: name.trim() }),
       });
 
       const data = await response.json();
@@ -148,145 +215,265 @@ function App() {
           userId: newUserId,
         });
       } else {
-        alert(data.detail || "Unknown error joining queue");
+        alert(data.detail || 'Unknown error joining queue');
       }
     } catch (error) {
-      alert("Network Error: Could not connect to the server.");
+      alert('Network Error: Could not connect to the server.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLeaveQueue = async () => {
-    if (confirm("Are you sure you want to give up your spot?")) {
-      try {
-        setIsLoading(true);
-        await fetch(`${API_BASE}/queue/${queueId}/leave/${userId}`, {
-          method: 'POST'
-        });
-        clearSession();
-        setIsInQueue(false);
-        setUserId('');
-        setPosition(null);
-        setTotalWaiting(0);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!confirm('Are you sure you want to give up your spot?')) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await fetch(`${API_BASE}/queue/${queueId}/leave/${userId}`, {
+        method: 'POST',
+      });
+      clearSession();
+      setIsInQueue(false);
+      setUserId('');
+      setPosition(null);
+      setTotalWaiting(0);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans sm:px-6 lg:px-8 py-12 px-4">
-      {/* Header */}
-      <div className="max-w-md w-full mx-auto flex flex-col items-center mb-8">
-        <div className="bg-indigo-600 p-3 rounded-2xl shadow-lg mb-4">
-          <Activity className="h-8 w-8 text-white" />
-        </div>
-        <h1 className="text-4xl font-black text-indigo-600 tracking-tight text-center">QuickQ</h1>
-        <p className="text-gray-500 font-medium mt-1">Smart Queue Management</p>
-      </div>
-
-      <div className="max-w-md w-full mx-auto">
-        {!isInQueue ? (
-          <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 p-8">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">👋</span>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Join the Line</h2>
-              <p className="text-gray-500 mt-2">Enter your details to get a virtual ticket.</p>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(17,76,70,0.18),_transparent_24%),linear-gradient(180deg,_#f6efe1_0%,_#f1e8d7_40%,_#fbf8f1_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-6 flex flex-col gap-4 rounded-[28px] border border-white/70 bg-white/70 px-5 py-5 shadow-[0_18px_50px_rgba(77,58,28,0.08)] backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-8">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#143f39] text-[#f5eddf] shadow-lg">
+              <Activity className="h-7 w-7" />
             </div>
-
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Queue ID</label>
-                <input
-                  type="text"
-                  value={queueId}
-                  onChange={(e) => setQueueId(e.target.value)}
-                  placeholder="e.g. main-clinic"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Your Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="John Doe"
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow outline-none"
-                />
-              </div>
-
-              <button
-                onClick={handleJoinQueue}
-                disabled={!name.trim() || !queueId.trim() || isLoading}
-                className="w-full mt-4 bg-indigo-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-md flex justify-center items-center h-14"
-              >
-                {isLoading ? (
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  "Get Ticket"
-                )}
-              </button>
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-[#8d7652]">QuickQ Check-In</p>
+              <h1 className="client-display text-4xl text-slate-900">Walk-in Queue</h1>
             </div>
           </div>
-        ) : (
-          <div className="bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-indigo-100 p-8 relative">
 
-            {/* Live Status Header */}
-            <div className="flex items-center justify-center mb-8 bg-gray-50 py-2 px-4 rounded-full w-max mx-auto border border-gray-100">
-              <div className={`w-2.5 h-2.5 rounded-full mr-2 ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">
-                {isConnected ? 'Live Updates Active' : 'Connecting...'}
-              </span>
+          <div className="rounded-2xl border border-[#ddcfb7] bg-[#fbf8f1] px-4 py-3 text-sm text-slate-600">
+            <div className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">Live Status</div>
+            <div className="mt-1 flex items-center gap-2 font-medium text-slate-900">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  isConnected ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.7)]' : 'bg-amber-500'
+                }`}
+              />
+              {isInQueue ? (isConnected ? 'Updates active' : 'Syncing your ticket') : 'Ready to join'}
+            </div>
+          </div>
+        </header>
+
+        <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+          <section className="overflow-hidden rounded-[32px] bg-[#173834] text-[#f4ebdb] shadow-[0_28px_60px_rgba(17,24,39,0.22)]">
+            <div className="border-b border-white/10 px-6 py-6 sm:px-8">
+              <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-[#d9ccb5]">
+                <Ticket className="h-4 w-4 text-[#efc15b]" />
+                Visitor Ticketing
+              </div>
+              <h2 className="client-display mt-6 text-5xl leading-tight text-white">
+                {isInQueue ? 'Your place is reserved.' : 'Check in without standing in line.'}
+              </h2>
+              <p className="mt-5 max-w-lg text-sm leading-7 text-[#d7ccb7] sm:text-base">
+                {isInQueue
+                  ? 'Keep this screen open. The queue updates automatically, and you will be notified when it is your turn.'
+                  : 'Choose the service counter, enter your name, and get a live ticket linked to the front-desk dashboard.'}
+              </p>
             </div>
 
-            <div className="text-center mb-8">
-              <h2 className="text-2xl text-gray-900 font-medium">Hey <span className="font-extrabold text-indigo-600">{name}</span>!</h2>
-              <p className="text-gray-500 mt-2">You are currently in queue: <span className="font-bold bg-gray-100 px-2 py-0.5 rounded text-gray-700">{queueId}</span></p>
-              <p className="text-sm text-gray-500 mt-3">Your ticket ID: <span className="font-mono font-semibold text-gray-700">{userId}</span></p>
-            </div>
+            <div className="grid gap-4 px-6 py-6 sm:px-8">
+              <div className="rounded-[26px] border border-white/10 bg-white/10 p-5">
+                <p className="text-xs uppercase tracking-[0.22em] text-[#cabf99]">
+                  Selected Queue
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-2xl font-semibold text-white">
+                      {queueId ? (selectedQueue?.display_name ?? 'Choose a service') : 'Choose a service'}
+                    </div>
+                    <div className="mt-1 text-sm text-[#d7ccb7]">
+                      {queueId
+                        ? (selectedQueue?.client_description ?? 'Queue details are loading from staff controls.')
+                        : 'Available desks are managed live by staff.'}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-black/15 px-4 py-3 text-right">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-[#cabf99]">Desk</div>
+                    <div className="mt-1 text-sm font-medium text-white">
+                      {queueId ? (selectedQueue?.counter_label ?? '--') : '--'}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            {/* Huge Position Indicator */}
-            <div className="flex justify-center mb-10">
-              <div className="w-48 h-48 rounded-full bg-indigo-50 flex items-center justify-center relative">
-                <div className="w-40 h-40 rounded-full bg-indigo-600 shadow-[0_0_30px_rgba(79,70,229,0.4)] flex flex-col items-center justify-center text-white relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-                  <span className="text-6xl font-black leading-none">{position || '-'}</span>
-                  <span className="text-indigo-200 text-sm font-semibold mt-1 uppercase tracking-wider">Your Position</span>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[24px] border border-white/10 bg-white/10 p-5">
+                  <div className="flex items-center gap-3 text-[#cabf99]">
+                    <Users className="h-4 w-4" />
+                    <span className="text-xs uppercase tracking-[0.2em]">People Waiting</span>
+                  </div>
+                  <div className="mt-4 text-4xl font-semibold text-white">{totalWaiting}</div>
+                  <p className="mt-2 text-sm text-[#d7ccb7]">Live count for the selected queue.</p>
+                </div>
+
+                <div className="rounded-[24px] border border-white/10 bg-white/10 p-5">
+                  <div className="flex items-center gap-3 text-[#cabf99]">
+                    <Clock3 className="h-4 w-4" />
+                    <span className="text-xs uppercase tracking-[0.2em]">Estimated Wait</span>
+                  </div>
+                  <div className="mt-4 text-4xl font-semibold text-white">~{(position || 1) * 3}m</div>
+                  <p className="mt-2 text-sm text-[#d7ccb7]">Approximate and refreshed with queue movement.</p>
                 </div>
               </div>
             </div>
+          </section>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
-                <div className="flex justify-center mb-1"><Users className="w-5 h-5 text-gray-400" /></div>
-                <div className="text-2xl font-bold text-gray-900">{totalWaiting}</div>
-                <div className="text-xs font-bold text-gray-500 uppercase mt-1">Total Waiting</div>
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
-                <div className="flex justify-center mb-1"><Clock className="w-5 h-5 text-gray-400" /></div>
-                <div className="text-2xl font-bold text-gray-900">~{((position || 1) * 3)}m</div>
-                <div className="text-xs font-bold text-gray-500 uppercase mt-1">Est. Wait</div>
-              </div>
-            </div>
+          <section className="rounded-[32px] border border-white/70 bg-white/80 p-6 shadow-[0_22px_60px_rgba(77,58,28,0.08)] backdrop-blur sm:p-8">
+            {!isInQueue ? (
+              <>
+                <div className="mb-8">
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#8d7652]">Self Check-In</p>
+                  <h2 className="client-display mt-2 text-4xl text-slate-900">Join the queue</h2>
+                  <p className="mt-3 max-w-xl text-sm leading-7 text-slate-600">
+                    Your ticket is created instantly and stays synced with the staff dashboard. You only need your name and the service counter you want to visit.
+                  </p>
+                </div>
 
-            <button
-              onClick={handleLeaveQueue}
-              disabled={isLoading}
-              className="w-full bg-white border-2 border-red-200 text-red-500 font-bold py-3 px-4 rounded-xl hover:bg-red-50 hover:border-red-300 transition-colors flex justify-center items-center disabled:opacity-50"
-            >
-              <XCircle className="w-5 h-5 mr-2" />
-              Leave Queue
-            </button>
-          </div>
-        )}
+                <div className="space-y-5">
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8d7652]">
+                      Select Queue
+                    </span>
+                    <select
+                      value={queueId}
+                      onChange={(e) => setQueueId(e.target.value)}
+                      disabled={queues.length === 0}
+                      className="w-full rounded-2xl border border-[#d7c8b1] bg-[#fbf8f1] px-4 py-3.5 text-slate-900 outline-none transition focus:border-[#143f39] focus:ring-4 focus:ring-[#143f39]/10"
+                    >
+                      {queues.length === 0 ? (
+                        <option value="">No service counters available</option>
+                      ) : (
+                        <>
+                          <option value="" disabled>
+                            Choose a service counter
+                          </option>
+                          {queues.map((queue) => (
+                            <option key={queue.queue_id} value={queue.queue_id}>
+                              {queue.display_name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-[#8d7652]">
+                      Your Name
+                    </span>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Nikhil"
+                      className="w-full rounded-2xl border border-[#d7c8b1] bg-[#fbf8f1] px-4 py-3.5 text-slate-900 outline-none transition focus:border-[#143f39] focus:ring-4 focus:ring-[#143f39]/10"
+                    />
+                  </label>
+
+                  <div className="rounded-[24px] border border-[#e6dcc9] bg-[#fcfaf5] px-5 py-4 text-sm leading-6 text-slate-600">
+                    Staff will call your name when it is your turn. Keep this page open if you want live position updates.
+                  </div>
+
+                  <button
+                    onClick={handleJoinQueue}
+                    disabled={!name.trim() || !queueId.trim() || isLoading || queues.length === 0}
+                    className="flex h-14 w-full items-center justify-center rounded-2xl bg-[#143f39] px-5 text-sm font-semibold uppercase tracking-[0.18em] text-[#f7f2e8] transition hover:bg-[#103530] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <div className="h-6 w-6 rounded-full border-2 border-[#f7f2e8] border-t-transparent animate-spin" />
+                    ) : (
+                      'Get Ticket'
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-[#8d7652]">Live Ticket</p>
+                    <h2 className="client-display mt-2 text-4xl text-slate-900">You are checked in</h2>
+                    <p className="mt-3 text-sm leading-7 text-slate-600">
+                      Stay nearby. Your ticket is active for <span className="font-semibold text-slate-900">{selectedQueue?.display_name ?? 'the selected service'}</span> and updates automatically.
+                    </p>
+                  </div>
+
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[#d7ccb6] bg-[#fbf8f1] px-4 py-2 text-sm font-medium text-slate-700">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        isConnected ? 'bg-emerald-500 shadow-[0_0_14px_rgba(16,185,129,0.7)]' : 'bg-amber-500'
+                      }`}
+                    />
+                    {isConnected ? 'Live updates active' : 'Connecting'}
+                  </div>
+                </div>
+
+                <div className="rounded-[32px] border border-[#d9ccb6] bg-[#fcfaf5] p-5 sm:p-7">
+                  <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+                    <div className="rounded-[28px] bg-[#173834] p-6 text-[#f4ebdb] shadow-[0_20px_45px_rgba(17,24,39,0.18)]">
+                      <div className="text-[11px] uppercase tracking-[0.24em] text-[#cabf99]">Position</div>
+                      <div className="mt-4 text-7xl font-semibold leading-none text-white">
+                        {position || '-'}
+                      </div>
+                      <div className="mt-5 text-sm leading-6 text-[#d7ccb7]">
+                        Ticket <span className="font-mono text-white">{userId}</span>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div className="rounded-[24px] border border-[#e6dcc9] bg-white p-5">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">Passenger</p>
+                        <div className="mt-2 text-2xl font-semibold text-slate-900">{name}</div>
+                        <div className="mt-1 text-sm text-slate-600">
+                          {selectedQueue?.display_name ?? 'Queue unavailable'} • {selectedQueue?.counter_label ?? '--'}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="rounded-[24px] border border-[#e6dcc9] bg-white p-5">
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">People Waiting</p>
+                          <div className="mt-2 text-3xl font-semibold text-slate-900">{totalWaiting}</div>
+                        </div>
+                        <div className="rounded-[24px] border border-[#e6dcc9] bg-white p-5">
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#8d7652]">Estimated Wait</p>
+                          <div className="mt-2 text-3xl font-semibold text-slate-900">~{(position || 1) * 3}m</div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleLeaveQueue}
+                        disabled={isLoading}
+                        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-5 text-sm font-semibold uppercase tracking-[0.16em] text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Leave Queue
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

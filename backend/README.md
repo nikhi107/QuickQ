@@ -17,6 +17,7 @@ This is the primary Spring Boot backend for QuickQ. It keeps the same API and We
 - `POST /admin/signup` when enabled by backend config
 - `POST /admin/login`
 - `GET /analytics/history`
+- `GET /queues`
 - `POST /queue/{queueId}/join`
 - `GET /queue/{queueId}/status`
 - `POST /queue/{queueId}/next`
@@ -51,6 +52,18 @@ The backend now supports environment-driven runtime configuration. The most usef
 - `QUICKQ_BOOTSTRAP_ADMIN_PASSWORD`
 - `QUICKQ_ADMIN_SIGNUP_ENABLED`
 - `QUICKQ_ADMIN_SIGNUP_INVITE_CODE`
+
+## Queue Catalog
+
+Queue metadata is now stored as backend records instead of being hardcoded in the React apps.
+
+On startup, the backend seeds three default queues:
+
+- `main-clinic`
+- `pharmacy`
+- `support-desk`
+
+Both frontends call `GET /queues` to populate queue selectors, labels, counters, and queue-specific descriptions.
 
 ## Admin Signup Policy
 

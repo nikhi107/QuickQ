@@ -10,6 +10,7 @@ A high-performance, real-time smart queue management system capable of handling 
 *   **Responsive Client Web App**: Built with React and Vite, providing a seamless experience for users to join lines, monitor their position, and get accurate wait-time estimations on any device.
 *   **Highly Scalable Backend**: Driven by Spring Boot (Java), utilizing Redis for live queue state and SQLite for user history analytics.
 *   **Secure Administration**: Features JWT token-based authentication for the admin panel.
+*   **Backend-Managed Queue Catalog**: Queue names, counters, and display metadata are served from the backend instead of being duplicated in each frontend.
 
 ---
 
@@ -88,6 +89,7 @@ npm run dev
 1. **Access the Dashboard**: Open your browser and navigate to `http://localhost:5173`.
 2. **Login**: Login with the bootstrap admin credentials configured for the backend, or use an explicitly enabled admin signup flow.
 3. **Select a Queue**: Use the dropdown on the left side to switch between different operational queues (e.g., "Main Clinic", "Pharmacy").
+   The queue list is loaded from backend records, so both frontends stay in sync when queue metadata changes.
 4. **Monitor Live Status**: The right panel displays the live "Waiting Line Queue." You can see exactly who is in line, their assigned ticket number, and total users waiting.
 5. **Call the Next Person**: Click the large purple **"Call Next Person"** button on the left panel. The person at the front of the line will instantly be removed from the queue and highlighted in the "Currently Serving" box.
 
@@ -98,6 +100,7 @@ npm run dev
    * Select the queue you want to join from the dropdown (for example, `Main Clinic`).
    * Enter your Name.
    * Click "Get Ticket".
+   * The available service counters are loaded from the backend queue catalog.
 3. **Wait in line**: The app will transition to a live-updating screen showing your **current position** in line and your **estimated wait time**.
 4. **Instant Updates**: As the administrator clicks "Call Next Person", your position number will automatically tick down in real-time until it is your turn!
 5. **Leaving the queue**: If you need to give up your spot, tap the red "Leave Queue" button.

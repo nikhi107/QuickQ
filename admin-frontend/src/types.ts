@@ -3,6 +3,16 @@ export interface User {
     name: string;
 }
 
+export interface QueueDefinition {
+    queue_id: string;
+    display_name: string;
+    admin_subtitle: string;
+    client_description: string;
+    counter_label: string;
+    accent_from: string;
+    accent_to: string;
+}
+
 export interface QueueStatus {
     queue_id: string;
     active_users: User[];
