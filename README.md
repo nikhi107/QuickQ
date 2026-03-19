@@ -6,17 +6,11 @@ A high-performance, real-time smart queue management system capable of handling 
 
 *   **Lightning Fast Queue Updates**: Utilizes Redis as an in-memory database to achieve sub-50ms queue state sync across all connected clients.
 *   **Real-time WebSockets**: Live progress tracking and immediate notifications for both clients and administrators without needing to refresh pages.
-*   **Premium Admin Dashboard**: Built with React, Vite, and Tailwind CSS. Features dynamic queue visualization, statistics, and 1-click controls to call the next person in line.
-*   **Responsive Client Web App**: Built with React and Vite, providing a seamless experience for users to join lines, monitor their position, and get accurate wait-time estimations on any device.
-*   **Highly Scalable Backend**: Driven by Spring Boot (Java), utilizing Redis for live queue state and SQLite for user history analytics.
+*   **Premium Admin Dashboard**: Built with React, Vite, and Tailwind CSS. Features dynamic queue visualization, queue-scoped split analytics (All-time vs Today), and 1-click controls to call the next person in line.
+*   **Public Display Board**: A dedicated big-screen view (`/display`) for waiting areas, showcasing "Now Serving" and the upcoming waitlist in a beautiful UI.
+*   **Responsive Client Web App**: Built with React and Vite, providing a seamless experience for visitors. Includes session recovery so tickets aren't lost on reload!
+*   **Smart ETA & Ticketing**: Generates short, human-friendly ticket numbers (e.g., `P-005`) and calculates dynamic estimated wait times based on live historical averages.
 *   **Secure Administration**: Features JWT token-based authentication for the admin panel.
-*   **Backend-Managed Queue Catalog**: Queue names, counters, and display metadata are served from the backend instead of being duplicated in each frontend.
-
----
-
-## 🏗️ Technical Architecture
-
-This repository is intuitively structured into three standalone components:
 
 1.  **`/backend`**: The Java Spring Boot server handling the logic, WebSockets, Redis, and Database connections.
 2.  **`/admin-frontend`**: The React.js web application for staff and administrators.
