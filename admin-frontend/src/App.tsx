@@ -244,6 +244,47 @@ function App() {
     }
   };
 
+  const handleRemoveUser = async (userId: string) => {
+    if (!token || !queueId) return;
+    if (!confirm('Are you sure you want to remove this user?')) return;
+    try {
+      await fetch(`${API_BASE}/queue/${queueId}/leave/${userId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error('Error removing user:', err);
+    }
+  };
+
+  const handleRequeueUser = async (userId: string) => {
+    if (!token || !queueId) return;
+    try {
+      await fetch(`${API_BASE}/admin/queue/${queueId}/requeue/${userId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error('Error requeuing user:', err);
+    }
+  };
+
+  const handleNoShow = async () => {
+    if (!token || !queueId || !calledUser) return;
+    if (!confirm('Mark this user as no-show and clear the desk?')) return;
+    try {
+      const resp = await fetch(`${API_BASE}/admin/queue/${queueId}/clear-serving`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (resp.ok) {
+        setCalledUser(null);
+      }
+    } catch (err) {
+      console.error('Error marking no show:', err);
+    }
+  };
+
   const handleCreateQueue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
@@ -509,6 +550,11 @@ function App() {
                       {calledUser.ticket_number || calledUser.user_id.substring(0, 6).toUpperCase()}
                     </div>
                     <div className="mt-3 text-xl font-medium text-white">{calledUser.name}</div>
+                    <div className="mt-4 flex justify-end">
+                      <button onClick={handleNoShow} className="text-xs font-semibold uppercase tracking-wider text-rose-300 hover:text-rose-100 transition">
+                        Dismiss (No-Show)
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>
@@ -635,12 +681,19 @@ function App() {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-[#e7dcc7] bg-white/80 px-4 py-3 text-sm text-slate-600">
-                          <div className="text-[11px] uppercase tracking-[0.18em] text-[#8d7652]">Service note</div>
-                          <div className="mt-1">
-                            {index === 0
-                              ? 'Keep counter ready for the next walk-in.'
-                              : `Estimated turn after ${Math.max(index * 3, 3)} min.`}
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <div className="rounded-2xl border border-[#e7dcc7] bg-white/80 px-4 py-3 text-sm text-slate-600">
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-[#8d7652]">Service note</div>
+                            <div className="mt-1">
+                              {index === 0
+                                ? 'Keep counter ready for the next walk-in.'
+                                : `Estimated turn after ${Math.max(index * 3, 3)} min.`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 justify-end mt-1">
+                            <button onClick={() => handleRequeueUser(user.user_id)} className="text-xs font-semibold uppercase tracking-wider text-[#153f3a] hover:underline">Requeue</button>
+                            <span className="text-slate-300">|</span>
+                            <button onClick={() => handleRemoveUser(user.user_id)} className="text-xs font-semibold uppercase tracking-wider text-rose-600 hover:underline">Remove</button>
                           </div>
                         </div>
                       </div>

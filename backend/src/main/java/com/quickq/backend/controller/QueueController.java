@@ -66,6 +66,24 @@ public class QueueController {
             .body(Map.of("detail", "User not found in queue"));
     }
 
+    @PostMapping("/admin/queue/{queueId}/requeue/{userId}")
+    public ResponseEntity<?> requeueUser(@PathVariable String queueId, @PathVariable String userId) {
+        queueCatalogService.ensureQueueExists(queueId);
+        if (queueService.requeueUser(queueId, userId)) {
+            return ResponseEntity.ok(new ApiDtos.MessageResponse("User requeued safely"));
+        }
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(Map.of("detail", "User not found in queue"));
+    }
+
+    @PostMapping("/admin/queue/{queueId}/clear-serving")
+    public ResponseEntity<?> clearServingUser(@PathVariable String queueId) {
+        queueCatalogService.ensureQueueExists(queueId);
+        queueService.clearServingUser(queueId);
+        return ResponseEntity.ok(new ApiDtos.MessageResponse("Serving user cleared"));
+    }
+
     @GetMapping("/queue/{queueId}/position/{userId}")
     public ApiDtos.UserPositionResponse getUserPosition(
         @PathVariable String queueId,

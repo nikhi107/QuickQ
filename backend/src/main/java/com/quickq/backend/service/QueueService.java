@@ -95,6 +95,17 @@ public class QueueService {
         return false;
     }
 
+    @Transactional
+    public boolean requeueUser(String queueId, String userId) {
+        Long removed = redisTemplate.opsForList().remove(queueKey(queueId), 1, userId);
+        if (removed != null && removed > 0) {
+            redisTemplate.opsForList().rightPush(queueKey(queueId), userId);
+            broadcastQueueUpdate(queueId);
+            return true;
+        }
+        return false;
+    }
+
     public ApiDtos.UserPositionResponse getUserPosition(String queueId, String userId) {
         List<String> activeUsers = redisTemplate.opsForList().range(queueKey(queueId), 0, -1);
         Integer position = null;
@@ -144,6 +155,11 @@ public class QueueService {
         String name = userData.getOrDefault("name", "Unknown").toString();
         String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
         return new ApiDtos.QueueUser(servingUserId, name, ticketNumber);
+    }
+
+    public void clearServingUser(String queueId) {
+        redisTemplate.delete("queue:" + queueId + ":serving");
+        broadcastQueueUpdate(queueId);
     }
 
     private String queueKey(String queueId) {
