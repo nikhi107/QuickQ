@@ -2,44 +2,40 @@ package com.quickq.backend.service;
 
 import com.quickq.backend.dto.ApiDtos;
 import com.quickq.backend.entity.UserHistory;
+import com.quickq.backend.repository.QueueRedisRepository;
 import com.quickq.backend.repository.UserHistoryRepository;
 import com.quickq.backend.websocket.QueueWebSocketBroadcaster;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class QueueService {
 
-    private final StringRedisTemplate redisTemplate;
+    private final QueueRedisRepository queueRedisRepository;
     private final UserHistoryRepository userHistoryRepository;
     private final QueueWebSocketBroadcaster queueWebSocketBroadcaster;
 
     public QueueService(
-        StringRedisTemplate redisTemplate,
+        QueueRedisRepository queueRedisRepository,
         UserHistoryRepository userHistoryRepository,
         QueueWebSocketBroadcaster queueWebSocketBroadcaster
     ) {
-        this.redisTemplate = redisTemplate;
+        this.queueRedisRepository = queueRedisRepository;
         this.userHistoryRepository = userHistoryRepository;
         this.queueWebSocketBroadcaster = queueWebSocketBroadcaster;
     }
 
     @Transactional
     public ApiDtos.JoinQueueResponse joinQueue(String queueId, ApiDtos.JoinQueueRequest request) {
-        Long seq = redisTemplate.opsForValue().increment("queue_seq:" + queueId);
+        Long seq = queueRedisRepository.incrementQueueSequence(queueId);
         String prefix = queueId.substring(0, 1).toUpperCase();
         String ticketNumber = String.format("%s-%03d", prefix, seq);
 
-        redisTemplate.opsForHash().put(userKey(request.userId()), "name", request.name());
-        redisTemplate.opsForHash().put(userKey(request.userId()), "queue_id", queueId);
-        redisTemplate.opsForHash().put(userKey(request.userId()), "ticket_number", ticketNumber);
-
-        Long position = redisTemplate.opsForList().rightPush(queueKey(queueId), request.userId());
+        queueRedisRepository.saveUser(request.userId(), queueId, request.name(), ticketNumber);
+        Long position = queueRedisRepository.addUserToQueue(queueId, request.userId());
 
         UserHistory history = new UserHistory();
         history.setQueueId(queueId);
@@ -61,15 +57,12 @@ public class QueueService {
 
     @Transactional
     public ApiDtos.CallNextResponse callNext(String queueId) {
-        String nextUserId = redisTemplate.opsForList().leftPop(queueKey(queueId));
+        String nextUserId = queueRedisRepository.popNextUserFromQueue(queueId);
         ApiDtos.QueueUser calledUser = null;
 
         if (nextUserId != null) {
-            redisTemplate.opsForValue().set("queue:" + queueId + ":serving", nextUserId);
-            Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(nextUserId));
-            String name = userData.getOrDefault("name", "Unknown").toString();
-            String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
-            calledUser = new ApiDtos.QueueUser(nextUserId, name, ticketNumber);
+            queueRedisRepository.setServingUser(queueId, nextUserId);
+            calledUser = queueRedisRepository.getUserDetails(nextUserId);
 
             userHistoryRepository.findTopByUserIdAndCalledAtIsNullOrderByIdDesc(nextUserId).ifPresent(history -> {
                 Instant calledAt = Instant.now();
@@ -87,9 +80,8 @@ public class QueueService {
 
     @Transactional
     public boolean leaveQueue(String queueId, String userId) {
-        Long removed = redisTemplate.opsForList().remove(queueKey(queueId), 1, userId);
-        if (removed != null && removed > 0) {
-            redisTemplate.delete(userKey(userId));
+        if (queueRedisRepository.removeUserFromQueue(queueId, userId)) {
+            queueRedisRepository.deleteUser(userId);
             broadcastQueueUpdate(queueId);
             return true;
         }
@@ -98,9 +90,8 @@ public class QueueService {
 
     @Transactional
     public boolean requeueUser(String queueId, String userId) {
-        Long removed = redisTemplate.opsForList().remove(queueKey(queueId), 1, userId);
-        if (removed != null && removed > 0) {
-            redisTemplate.opsForList().rightPush(queueKey(queueId), userId);
+        if (queueRedisRepository.removeUserFromQueue(queueId, userId)) {
+            queueRedisRepository.addUserToQueue(queueId, userId);
             broadcastQueueUpdate(queueId);
             return true;
         }
@@ -108,7 +99,7 @@ public class QueueService {
     }
 
     public ApiDtos.UserPositionResponse getUserPosition(String queueId, String userId) {
-        List<String> activeUsers = redisTemplate.opsForList().range(queueKey(queueId), 0, -1);
+        List<String> activeUsers = queueRedisRepository.getActiveUserIds(queueId);
         Integer position = null;
         if (activeUsers != null) {
             int index = activeUsers.indexOf(userId);
@@ -132,43 +123,25 @@ public class QueueService {
     }
 
     private List<ApiDtos.QueueUser> getActiveUsers(String queueId) {
-        List<String> userIds = redisTemplate.opsForList().range(queueKey(queueId), 0, -1);
+        List<String> userIds = queueRedisRepository.getActiveUserIds(queueId);
         if (userIds == null) {
             return List.of();
         }
 
         return userIds.stream()
-            .map(userId -> {
-                Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(userId));
-                String name = userData.getOrDefault("name", "Unknown").toString();
-                String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
-                return new ApiDtos.QueueUser(userId, name, ticketNumber);
-            })
+            .map(queueRedisRepository::getUserDetails)
             .toList();
     }
 
     private ApiDtos.QueueUser getServingUser(String queueId) {
-        String servingUserId = redisTemplate.opsForValue().get("queue:" + queueId + ":serving");
+        String servingUserId = queueRedisRepository.getServingUserId(queueId);
         if (servingUserId == null) return null;
         
-        Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(servingUserId));
-        if (userData.isEmpty()) return null;
-        
-        String name = userData.getOrDefault("name", "Unknown").toString();
-        String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
-        return new ApiDtos.QueueUser(servingUserId, name, ticketNumber);
+        return queueRedisRepository.getUserDetails(servingUserId);
     }
 
     public void clearServingUser(String queueId) {
-        redisTemplate.delete("queue:" + queueId + ":serving");
+        queueRedisRepository.clearServingUser(queueId);
         broadcastQueueUpdate(queueId);
-    }
-
-    private String queueKey(String queueId) {
-        return "queue:" + queueId;
-    }
-
-    private String userKey(String userId) {
-        return "user:" + userId;
     }
 }
