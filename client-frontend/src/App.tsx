@@ -8,6 +8,7 @@ type QueueSession = {
   queueId: string;
   name: string;
   userId: string;
+  ticketNumber?: string;
 };
 
 type QueueDefinition = {
@@ -26,6 +27,13 @@ const loadStoredSession = (): QueueSession | null => {
     return null;
   }
 
+
+const loadStoredSession = (): QueueSession | null => {
+  const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
   try {
     const parsed = JSON.parse(raw) as Partial<QueueSession>;
     if (!parsed.queueId || !parsed.name || !parsed.userId) {
@@ -36,6 +44,7 @@ const loadStoredSession = (): QueueSession | null => {
       queueId: parsed.queueId,
       name: parsed.name,
       userId: parsed.userId,
+      ticketNumber: parsed.ticketNumber,
     };
   } catch {
     return null;
@@ -47,6 +56,7 @@ function App() {
   const [queueId, setQueueId] = useState(initialSession?.queueId ?? '');
   const [name, setName] = useState(initialSession?.name ?? '');
   const [userId, setUserId] = useState(initialSession?.userId ?? '');
+  const [ticketNumber, setTicketNumber] = useState(initialSession?.ticketNumber ?? '');
   const [isInQueue, setIsInQueue] = useState(Boolean(initialSession));
   const [queues, setQueues] = useState<QueueDefinition[]>([]);
 
@@ -116,6 +126,7 @@ function App() {
     clearSession();
     setIsInQueue(false);
     setUserId('');
+    setTicketNumber('');
     setPosition(null);
     setTotalWaiting(0);
     setQueueId(queues[0]?.queue_id ?? '');
@@ -169,6 +180,7 @@ function App() {
           clearSession();
           setIsInQueue(false);
           setUserId('');
+          setTicketNumber('');
           setPosition(null);
           setTotalWaiting(0);
           alert("It's your turn! Please proceed to the counter.");
@@ -207,12 +219,14 @@ function App() {
       const data = await response.json();
       if (response.ok) {
         setUserId(newUserId);
+        setTicketNumber(data.ticketNumber);
         setPosition(data.position);
         setIsInQueue(true);
         persistSession({
           queueId: queueId.trim(),
           name: name.trim(),
           userId: newUserId,
+          ticketNumber: data.ticketNumber
         });
       } else {
         alert(data.detail || 'Unknown error joining queue');
@@ -237,6 +251,7 @@ function App() {
       clearSession();
       setIsInQueue(false);
       setUserId('');
+      setTicketNumber('');
       setPosition(null);
       setTotalWaiting(0);
     } catch (err) {
@@ -435,7 +450,7 @@ function App() {
                         {position || '-'}
                       </div>
                       <div className="mt-5 text-sm leading-6 text-[#d7ccb7]">
-                        Ticket <span className="font-mono text-white">{userId}</span>
+                        Ticket <span className="font-mono text-white text-lg font-bold">{ticketNumber || userId}</span>
                       </div>
                     </div>
 

@@ -30,19 +30,26 @@ public class QueueService {
     }
 
     @Transactional
-    public int joinQueue(String queueId, ApiDtos.JoinQueueRequest request) {
+    public ApiDtos.JoinQueueResponse joinQueue(String queueId, ApiDtos.JoinQueueRequest request) {
+        Long seq = redisTemplate.opsForValue().increment("queue_seq:" + queueId);
+        String prefix = queueId.substring(0, 1).toUpperCase();
+        String ticketNumber = String.format("%s-%03d", prefix, seq);
+
         redisTemplate.opsForHash().put(userKey(request.userId()), "name", request.name());
         redisTemplate.opsForHash().put(userKey(request.userId()), "queue_id", queueId);
+        redisTemplate.opsForHash().put(userKey(request.userId()), "ticket_number", ticketNumber);
+
         Long position = redisTemplate.opsForList().rightPush(queueKey(queueId), request.userId());
 
         UserHistory history = new UserHistory();
         history.setQueueId(queueId);
         history.setUserId(request.userId());
         history.setName(request.name());
+        history.setTicketNumber(ticketNumber);
         userHistoryRepository.save(history);
 
         broadcastQueueUpdate(queueId);
-        return position == null ? 0 : position.intValue();
+        return new ApiDtos.JoinQueueResponse("Joined queue successfully", position == null ? 0 : position.intValue(), ticketNumber);
     }
 
     public ApiDtos.QueueStatusResponse getQueueStatus(String queueId) {
@@ -58,7 +65,8 @@ public class QueueService {
         if (nextUserId != null) {
             Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(nextUserId));
             String name = userData.getOrDefault("name", "Unknown").toString();
-            calledUser = new ApiDtos.QueueUser(nextUserId, name);
+            String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
+            calledUser = new ApiDtos.QueueUser(nextUserId, name, ticketNumber);
 
             userHistoryRepository.findTopByUserIdAndCalledAtIsNullOrderByIdDesc(nextUserId).ifPresent(history -> {
                 Instant calledAt = Instant.now();
@@ -117,7 +125,8 @@ public class QueueService {
             .map(userId -> {
                 Map<Object, Object> userData = redisTemplate.opsForHash().entries(userKey(userId));
                 String name = userData.getOrDefault("name", "Unknown").toString();
-                return new ApiDtos.QueueUser(userId, name);
+                String ticketNumber = userData.getOrDefault("ticket_number", "").toString();
+                return new ApiDtos.QueueUser(userId, name, ticketNumber);
             })
             .toList();
     }

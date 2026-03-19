@@ -498,7 +498,7 @@ function App() {
                   <>
                     <div className="text-[11px] uppercase tracking-[0.24em] text-white/60">Current Ticket</div>
                     <div className="mt-3 font-mono text-4xl font-semibold tracking-[0.18em]">
-                      {calledUser.user_id.substring(0, 6).toUpperCase()}
+                      {calledUser.ticket_number || calledUser.user_id.substring(0, 6).toUpperCase()}
                     </div>
                     <div className="mt-3 text-xl font-medium text-white">{calledUser.name}</div>
                   </>
@@ -623,7 +623,7 @@ function App() {
                                 </span>
                               )}
                             </div>
-                            <p className="mt-2 font-mono text-sm text-slate-500">Ticket #{user.user_id}</p>
+                            <p className="mt-2 font-mono text-sm font-semibold tracking-wide text-slate-500">Ticket {user.ticket_number || `#${user.user_id.substring(0, 6)}`}</p>
                           </div>
                         </div>
 

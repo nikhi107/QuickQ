@@ -16,6 +16,9 @@ public final class ApiDtos {
     public record JoinQueueRequest(String userId, String name) {
     }
 
+    public record JoinQueueResponse(String message, int position, String ticketNumber) {
+    }
+
     public record CreateQueueRequest(
         String queueId,
         String displayName,
@@ -38,7 +41,7 @@ public final class ApiDtos {
     ) {
     }
 
-    public record QueueUser(String userId, String name) {
+    public record QueueUser(String userId, String name, String ticketNumber) {
     }
 
     public record QueueStatusResponse(String queueId, List<QueueUser> activeUsers, int totalWaiting) {

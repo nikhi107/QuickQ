@@ -26,6 +26,9 @@ public class UserHistory {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "ticket_number", nullable = true)
+    private String ticketNumber;
+
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
 
@@ -72,6 +75,14 @@ public class UserHistory {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getTicketNumber() {
+        return ticketNumber;
+    }
+
+    public void setTicketNumber(String ticketNumber) {
+        this.ticketNumber = ticketNumber;
     }
 
     public Instant getJoinedAt() {

@@ -1,6 +1,7 @@
 export interface User {
     user_id: string;
     name: string;
+    ticket_number?: string;
 }
 
 export interface QueueDefinition {

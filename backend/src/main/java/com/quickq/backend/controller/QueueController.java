@@ -35,16 +35,12 @@ public class QueueController {
     }
 
     @PostMapping("/queue/{queueId}/join")
-    public Map<String, Object> joinQueue(
+    public ApiDtos.JoinQueueResponse joinQueue(
         @PathVariable String queueId,
         @RequestBody ApiDtos.JoinQueueRequest request
     ) {
         queueCatalogService.ensureQueueExists(queueId);
-        int position = queueService.joinQueue(queueId, request);
-        return Map.of(
-            "message", "Joined queue successfully",
-            "position", position
-        );
+        return queueService.joinQueue(queueId, request);
     }
 
     @GetMapping("/queue/{queueId}/status")
