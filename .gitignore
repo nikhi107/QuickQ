@@ -17,3 +17,9 @@ __pycache__/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Private Interview Documents
+HR_ANSWER_SCRIPT.md
+INTERVIEW_CHEATSHEET.md
+INTERVIEW_GUIDE.md
+SHOWCASE_PLAN.md
