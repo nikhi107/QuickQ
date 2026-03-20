@@ -348,23 +348,7 @@ function App() {
               </p>
             </div>
 
-            <div className="relative grid gap-4 md:grid-cols-3">
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-[#cabf99]">Flow</p>
-                <p className="mt-3 text-3xl font-semibold text-white">Live</p>
-                <p className="mt-2 text-sm text-[#d7ccb7]">WebSocket queue updates for every active desk.</p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-[#cabf99]">Security</p>
-                <p className="mt-3 text-3xl font-semibold text-white">JWT</p>
-                <p className="mt-2 text-sm text-[#d7ccb7]">Protected admin actions with auditable sessions.</p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-5">
-                <p className="text-xs uppercase tracking-[0.24em] text-[#cabf99]">Store</p>
-                <p className="mt-3 text-3xl font-semibold text-white">Redis</p>
-                <p className="mt-2 text-sm text-[#d7ccb7]">Fast queue state backed by persistent history.</p>
-              </div>
-            </div>
+
           </section>
 
           <section className="flex items-center px-6 py-10 sm:px-10">
