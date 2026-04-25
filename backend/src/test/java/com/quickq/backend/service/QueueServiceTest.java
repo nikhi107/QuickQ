@@ -10,6 +10,7 @@ import com.quickq.backend.entity.UserHistory;
 import com.quickq.backend.repository.QueueRedisRepository;
 import com.quickq.backend.repository.UserHistoryRepository;
 import com.quickq.backend.websocket.QueueWebSocketBroadcaster;
+import com.quickq.backend.service.AsyncQueueBroadcaster;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ class QueueServiceTest {
     private UserHistoryRepository userHistoryRepository;
 
     @Mock
-    private QueueWebSocketBroadcaster queueWebSocketBroadcaster;
+    private AsyncQueueBroadcaster asyncQueueBroadcaster;
 
     @InjectMocks
     private QueueService queueService;
@@ -48,13 +49,13 @@ class QueueServiceTest {
 
         ApiDtos.JoinQueueResponse response = queueService.joinQueue(queueId, request);
 
-        assertEquals("Joined queue successfully", response.detail());
+        assertEquals("Joined queue successfully", response.message());
         assertEquals(1, response.position());
         assertEquals("P-005", response.ticketNumber());
 
         verify(queueRedisRepository).saveUser("u1", queueId, "Nikhil", "P-005");
         verify(userHistoryRepository).save(any(UserHistory.class));
-        verify(queueWebSocketBroadcaster).broadcast(eq(queueId), any());
+        verify(asyncQueueBroadcaster).broadcastQueueUpdateAsync(eq(queueId));
     }
 
     @Test

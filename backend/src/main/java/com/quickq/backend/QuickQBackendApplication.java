@@ -13,7 +13,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 
+import org.springframework.scheduling.annotation.EnableAsync;
+
 @SpringBootApplication
+@EnableAsync
 @EnableConfigurationProperties(AppProperties.class)
 public class QuickQBackendApplication {
 
@@ -50,7 +53,7 @@ public class QuickQBackendApplication {
             queueDefinitionRepository.save(
                 queueDefinition(
                     "main-clinic",
-                    "Main Clinic",
+                    "General OPD",
                     "General consultation and reception desk",
                     "General consultations, check-in, and reception.",
                     "Counter A",
@@ -62,7 +65,7 @@ public class QuickQBackendApplication {
             queueDefinitionRepository.save(
                 queueDefinition(
                     "pharmacy",
-                    "Pharmacy",
+                    "Dispensary",
                     "Prescription pickup and medicine support",
                     "Prescription pickup and medicine support.",
                     "Counter B",
@@ -74,7 +77,7 @@ public class QuickQBackendApplication {
             queueDefinitionRepository.save(
                 queueDefinition(
                     "support-desk",
-                    "Support Desk",
+                    "Billing Counter",
                     "Billing, documents, and service assistance",
                     "Billing, documents, and assistance requests.",
                     "Counter C",

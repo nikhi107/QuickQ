@@ -1,20 +1,20 @@
 # QuickQ: Smart Queue Management System
 
-A high-performance, real-time smart queue management system capable of handling 100+ concurrent users with sub-50ms queue state updates. Built as a full-stack solution featuring a Java/Spring Boot backend and two React/Vite frontends (Admin Dashboard and Client Web App).
+A high-performance, real-time smart queue management system capable of handling 100+ concurrent users with sub-50ms queue state updates. Built as a full-stack solution featuring a Java/Spring Boot backend and two plain HTML/CSS/JS frontends (Admin Dashboard and Client Web App).
 
 ## 🌟 Key Features
 
 *   **Lightning Fast Queue Updates**: Utilizes Redis as an in-memory database to achieve sub-50ms queue state sync across all connected clients.
 *   **Real-time WebSockets**: Live progress tracking and immediate notifications for both clients and administrators without needing to refresh pages.
-*   **Premium Admin Dashboard**: Built with React, Vite, and Tailwind CSS. Features dynamic queue visualization, queue-scoped split analytics (All-time vs Today), and 1-click controls to call the next person in line.
+*   **Premium Admin Dashboard**: Built with plain HTML, CSS, and vanilla JavaScript. Features dynamic queue visualization, queue-scoped split analytics (All-time vs Today), and 1-click controls to call the next person in line.
 *   **Public Display Board**: A dedicated big-screen view (`/display`) for waiting areas, showcasing "Now Serving" and the upcoming waitlist in a beautiful UI.
-*   **Responsive Client Web App**: Built with React and Vite, providing a seamless experience for visitors. Includes session recovery so tickets aren't lost on reload!
+*   **Responsive Client Web App**: Built with plain HTML, CSS, and vanilla JavaScript, providing a seamless experience for visitors. Includes session recovery so tickets aren't lost on reload!
 *   **Smart ETA & Ticketing**: Generates short, human-friendly ticket numbers (e.g., `P-005`) and calculates dynamic estimated wait times based on live historical averages.
 *   **Secure Administration**: Features JWT token-based authentication for the admin panel.
 
 1.  **`/backend`**: The Java Spring Boot server handling the logic, WebSockets, Redis, and Database connections.
-2.  **`/admin-frontend`**: The React.js web application for staff and administrators.
-3.  **`/client-frontend`**: The React.js responsive web application designed for the end-users.
+2.  **`/admin-frontend`**: The vanilla JavaScript web application for staff and administrators.
+3.  **`/client-frontend`**: The vanilla JavaScript responsive web application designed for the end-users.
 
 ---
 

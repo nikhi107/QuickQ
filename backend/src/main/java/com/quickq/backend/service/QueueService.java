@@ -5,6 +5,7 @@ import com.quickq.backend.entity.UserHistory;
 import com.quickq.backend.repository.QueueRedisRepository;
 import com.quickq.backend.repository.UserHistoryRepository;
 import com.quickq.backend.websocket.QueueWebSocketBroadcaster;
+import com.quickq.backend.service.AsyncQueueBroadcaster;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -16,16 +17,16 @@ public class QueueService {
 
     private final QueueRedisRepository queueRedisRepository;
     private final UserHistoryRepository userHistoryRepository;
-    private final QueueWebSocketBroadcaster queueWebSocketBroadcaster;
+    private final AsyncQueueBroadcaster asyncQueueBroadcaster;
 
     public QueueService(
         QueueRedisRepository queueRedisRepository,
         UserHistoryRepository userHistoryRepository,
-        QueueWebSocketBroadcaster queueWebSocketBroadcaster
+        AsyncQueueBroadcaster asyncQueueBroadcaster
     ) {
         this.queueRedisRepository = queueRedisRepository;
         this.userHistoryRepository = userHistoryRepository;
-        this.queueWebSocketBroadcaster = queueWebSocketBroadcaster;
+        this.asyncQueueBroadcaster = asyncQueueBroadcaster;
     }
 
     @Transactional
@@ -119,7 +120,7 @@ public class QueueService {
     }
 
     public void broadcastQueueUpdate(String queueId) {
-        queueWebSocketBroadcaster.broadcast(queueId, buildQueueUpdateMessage(queueId));
+        asyncQueueBroadcaster.broadcastQueueUpdateAsync(queueId);
     }
 
     private List<ApiDtos.QueueUser> getActiveUsers(String queueId) {
