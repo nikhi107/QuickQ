@@ -1,77 +1,92 @@
-# QuickQ: Smart Queue Management System
+# QuickQ: High-Performance Smart Queue Management System
 
-A high-performance, real-time smart queue management system capable of handling 100+ concurrent users with sub-50ms queue state updates. Built as a full-stack solution featuring a Java/Spring Boot backend and two plain HTML/CSS/JS frontends (Admin Dashboard and Client Web App).
+A production-ready, real-time smart queue management system capable of handling 100+ concurrent users with sub-50ms queue state updates. Built as a full-stack solution featuring a Java/Spring Boot backend and two vanilla HTML/CSS/JS frontends (Admin Dashboard and Client Web App).
 
 ## 🌟 Key Features
 
-*   **Lightning Fast Queue Updates**: Utilizes Redis as an in-memory database to achieve sub-50ms queue state sync across all connected clients.
+*   **Lightning Fast Queue Updates**: Utilizes **Redis** for ephemeral state and pipelining to achieve sub-50ms queue state sync across all connected clients.
+*   **Separation of Concerns**: Uses **SQLite (JPA)** for persistent data (User History, Analytics) and **Redis** strictly for fast queue management, avoiding transactional bottlenecks.
 *   **Real-time WebSockets**: Live progress tracking and immediate notifications for both clients and administrators without needing to refresh pages.
-*   **Premium Admin Dashboard**: Built with plain HTML, CSS, and vanilla JavaScript. Features dynamic queue visualization, queue-scoped split analytics (All-time vs Today), and 1-click controls to call the next person in line.
-*   **Public Display Board**: A dedicated big-screen view (`/display`) for waiting areas, showcasing "Now Serving" and the upcoming waitlist in a beautiful UI.
-*   **Responsive Client Web App**: Built with plain HTML, CSS, and vanilla JavaScript, providing a seamless experience for visitors. Includes session recovery so tickets aren't lost on reload!
+*   **Production-Ready Security & API**:
+    *   **Rate Limiting Filter**: Protects endpoints (10 requests/min per IP) to prevent abuse.
+    *   **JWT Authentication**: Secure endpoints and role-based access control (Admin vs. Guest).
+    *   **Global Exception Handling**: Returns standardized JSON error responses.
+    *   **Swagger OpenAPI Integration**: Beautiful interactive API documentation available at `/swagger-ui.html`.
+*   **Premium Dynamic UI**: 
+    *   Stunning gradients, skeleton loaders, toast notifications, and CSS shimmer animations.
+    *   Dynamic frontend configuration loading from `config.js` via `.env`.
 *   **Smart ETA & Ticketing**: Generates short, human-friendly ticket numbers (e.g., `P-005`) and calculates dynamic estimated wait times based on live historical averages.
-*   **Secure Administration**: Features JWT token-based authentication for the admin panel.
-
-1.  **`/backend`**: The Java Spring Boot server handling the logic, WebSockets, Redis, and Database connections.
-2.  **`/admin-frontend`**: The vanilla JavaScript web application for staff and administrators.
-3.  **`/client-frontend`**: The vanilla JavaScript responsive web application designed for the end-users.
+*   **Resume-Ready CI/CD**: Fully Dockerized with a complete `docker-compose.yml` stack, Nginx reverse proxy, and GitHub Actions CI pipeline.
 
 ---
 
-## 🚀 Getting Started (Local Setup)
+## 🏗 Architecture
+
+The system is split into three main parts:
+1.  **`/backend`**: Java Spring Boot server handling business logic, WebSockets, Redis (Queue State), and SQLite (Analytics/History).
+2.  **`/admin-frontend`**: Vanilla JavaScript SPA for staff and administrators. Served by Nginx.
+3.  **`/client-frontend`**: Vanilla JavaScript responsive web application for end-users. Served by Nginx.
+
+---
+
+## 🚀 Getting Started (Docker Compose)
+
+The easiest way to run the entire stack in a production-like environment is using Docker Compose.
 
 ### Prerequisites
+*   [Docker](https://docs.docker.com/get-docker/) & Docker Compose
 
-*   [Node.js](https://nodejs.org/) (v16+)
-*   Java 21+
-*   [Apache Maven](https://maven.apache.org/) 3.9+
-*   **Redis**: You *must* have Redis installed and running locally on port `6379`.
-    *   *Windows*: Install via [WSL](https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/install-redis-on-windows/), [Docker](https://hub.docker.com/_/redis), or use [Memurai](https://www.memurai.com/).
-    *   *Mac/Linux*: Install via Homebrew `brew install redis` or `apt-get install redis-server`.
+### ⚡ Quick Start
 
-### ⚡ Quick Start Method (Windows)
+1.  Clone the repository and enter the directory.
+2.  Start the entire stack using Docker Compose:
+    ```bash
+    docker-compose up -d --build
+    ```
+3.  The services will automatically start up and network together:
+    *   **Backend API & Swagger UI**: `http://localhost:8000` -> `http://localhost:8000/swagger-ui.html`
+    *   **Client Web App**: `http://localhost:80/`
+    *   **Admin Dashboard**: `http://localhost:80/admin-portal`
 
-For Windows users, we've included a handy batch script to start all services simultaneously:
+*(Note: The default admin credentials are configurable via the `docker-compose.yml` environment variables: `admin` / `admin123`)*
 
-1. Ensure Redis is running in the background.
-2. Double-click the `start_all.bat` file in the root directory.
-3. The script will automatically launch:
-   * Backend API (`localhost:8000`)
-   * Admin Dashboard (`localhost:5173`)
-   * Client Web App (`localhost:5174`)
+---
 
-### 🛠 Manual Setup Method
+## 🛠 Manual Setup Method (Local Dev)
 
-If you prefer to start the services manually or are on Mac/Linux, follow these steps:
+If you prefer to start the services manually or are actively developing, follow these steps:
 
-#### 1. Backend Setup
+### Prerequisites
+*   Java 21+ and Maven 3.9+
+*   Node.js (v16+) - optional, for formatting
+*   **Redis**: Must be running locally on port `6379`.
+
+### 1. Backend Setup
+Create a `.env` file from the example:
+```bash
+cd backend/resources
+cp .env.example ../.env
+```
+Start the Spring Boot server:
 ```bash
 cd backend
-
-# Run the server
 mvn spring-boot:run
 ```
 
-#### 2. Admin Frontend Setup
+### 2. Frontend Setup (Admin & Client)
+Update your configuration:
+1. Copy `client-frontend/config.example.js` to `client-frontend/config.js`
+2. Copy `admin-frontend/config.example.js` to `admin-frontend/config.js`
+
+Since the frontends are built with pure HTML, CSS, and vanilla JavaScript without build tools, you don't need `npm` or `node_modules`! You can serve them using any simple static file server, for instance using Python:
 ```bash
+# Terminal 1: Start Admin Frontend
 cd admin-frontend
+python -m http.server 5173
 
-# Install dependencies
-npm install
-
-# Start the dev server
-npm run dev
-```
-
-#### 3. Client Frontend Setup
-```bash
+# Terminal 2: Start Client Frontend
 cd client-frontend
-
-# Install dependencies
-npm install
-
-# Start the dev server
-npm run dev
+python -m http.server 5174
 ```
 
 ---
@@ -79,22 +94,27 @@ npm run dev
 ## 📖 User Guide
 
 ### For Administrators (Using the Admin Dashboard)
-
-1. **Access the Dashboard**: Open your browser and navigate to `http://localhost:5173`.
-2. **Login**: Login with the bootstrap admin credentials configured for the backend, or use an explicitly enabled admin signup flow.
-3. **Select a Queue**: Use the dropdown on the left side to switch between different operational queues (e.g., "Main Clinic", "Pharmacy").
-   The queue list is loaded from backend records, so both frontends stay in sync when queue metadata changes.
-4. **Monitor Live Status**: The right panel displays the live "Waiting Line Queue." You can see exactly who is in line, their assigned ticket number, and total users waiting.
-5. **Call the Next Person**: Click the large purple **"Call Next Person"** button on the left panel. The person at the front of the line will instantly be removed from the queue and highlighted in the "Currently Serving" box.
+1. **Access the Dashboard**: Navigate to `/admin-portal` (or `http://localhost:5173` locally).
+2. **Login**: Login with the bootstrap admin credentials to have full control over queues and calling patients. Use "Login as Guest" (`guest`/`guest123`) to enter view-only mode.
+3. **Manage Queues**: Click the gear icon to create dynamic queues with custom labels and UI gradient colors!
+4. **Call the Next Person**: Click the large **"Call Next Person"** button. The ticket number will visually flash, and the person will be highlighted. *(Note: This instantly updates the Service Snapshot analytics metrics!)*
 
 ### For End-Users (Using the Client Web App)
+1. **Access the app**: Open `/` (or `http://localhost:5174` locally).
+2. **Join a Queue**: Select a queue from the dropdown, enter your name, and click "Get Ticket".
+3. **Wait in line**: Watch the sleek, responsive UI show your **current position** in line and your **estimated wait time**.
+4. **Instant Updates**: As the administrator clicks "Call Next Person", your position ticks down in real-time until it is your turn. When called, an animated "Your Turn" screen will pop up to alert you!
 
-1. **Access the app**: Open `http://localhost:5174` in your browser.
-2. **Join a Queue**: 
-   * Select the queue you want to join from the dropdown (for example, `Main Clinic`).
-   * Enter your Name.
-   * Click "Get Ticket".
-   * The available service counters are loaded from the backend queue catalog.
-3. **Wait in line**: The app will transition to a live-updating screen showing your **current position** in line and your **estimated wait time**.
-4. **Instant Updates**: As the administrator clicks "Call Next Person", your position number will automatically tick down in real-time until it is your turn!
-5. **Leaving the queue**: If you need to give up your spot, tap the red "Leave Queue" button.
+---
+
+## 🧪 Testing and CI
+
+This repository uses **GitHub Actions** for Continuous Integration.
+* Every push or pull request to the `main` branch triggers the CI pipeline.
+* The pipeline spins up a Redis service container and runs the comprehensive JUnit and Spring Boot test suite using `mvn test`.
+
+To run the tests locally:
+```bash
+cd backend
+mvn test
+```

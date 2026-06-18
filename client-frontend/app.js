@@ -1,6 +1,23 @@
 /* ===== Configuration ===== */
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.QUICKQ_CONFIG?.API_BASE || 'http://localhost:8000';
 const WS_BASE = API_BASE.replace(/^http/i, 'ws');
+
+/* ===== Toast Notification ===== */
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  // trigger reflow
+  toast.offsetHeight;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
 
 /* ===== SVG Icons ===== */
 const ICONS = {
@@ -40,6 +57,9 @@ let state = {
   totalWaiting: 0,
   avgWaitTimeSeconds: 0,
   isLoading: false,
+  isInitializing: true,
+  isCalled: false,
+  isConfirmingLeave: false,
 };
 
 let ws = null;
@@ -47,11 +67,11 @@ let ws = null;
 /* ===== Session Persistence ===== */
 function loadSession() {
   try {
-    const raw = localStorage.getItem('quickq-client-session');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed.queueId || !parsed.name || !parsed.userId) return null;
-    return parsed;
+    const userId = localStorage.getItem('userId');
+    const queueId = localStorage.getItem('queueId');
+    const ticketNumber = localStorage.getItem('ticketNumber');
+    if (!userId || !queueId) return null;
+    return { userId, queueId, ticketNumber };
   } catch {
     return null;
   }
@@ -68,6 +88,7 @@ function clearSession() {
   localStorage.removeItem('userId');
   localStorage.removeItem('ticketNumber');
   localStorage.removeItem('isInQueue');
+  localStorage.removeItem('queueId');
 }
 
 /* ===== Computed Values ===== */
@@ -89,15 +110,12 @@ async function fetchQueues() {
     if (!response.ok) throw new Error(`Failed: ${response.status}`);
     const data = await response.json();
     state.queues = data;
-    if (!data.some(q => q.queue_id === state.queueId)) {
+    if (!state.queueId && data.length > 0) {
       state.queueId = data[0]?.queue_id || '';
     }
-    render();
   } catch (err) {
     console.error('Error fetching queues:', err);
     state.queues = [];
-    state.queueId = '';
-    render();
   }
 }
 
@@ -107,13 +125,14 @@ async function fetchPosition() {
     if (response.ok) {
       const data = await response.json();
       if (data.position === null) {
+        state.isCalled = true;
         clearSession();
         state.isInQueue = false;
         state.userId = '';
         state.ticketNumber = '';
         state.position = null;
         state.totalWaiting = 0;
-        alert("It's your turn! Please proceed to the counter.");
+        showToast("It's your turn! Please proceed to the counter.", "success");
       } else {
         state.position = data.position;
       }
@@ -179,7 +198,12 @@ function connectWebSocket() {
         if (data.average_wait_time_seconds !== undefined) {
           state.avgWaitTimeSeconds = data.average_wait_time_seconds;
         }
-        fetchPosition();
+        // Only poll position if user is actually in queue
+        if (state.isInQueue && state.userId) {
+          fetchPosition();
+        } else {
+          render();
+        }
       }
     } catch (e) {
       console.error('Error parsing WS data', e);
@@ -194,11 +218,8 @@ async function handleJoinQueue() {
   render();
 
   try {
-    let ticket = state.mobileNumber ? state.mobileNumber.trim() : `T-${Math.floor(1000 + Math.random() * 9000)}`;
     const joinData = {
-      user_id: `u-${Date.now()}`,
-      username: state.name.trim(),
-      ticket_number: ticket,
+      name: state.name.trim(),
     };
     const response = await fetch(`${API_BASE}/queue/${state.queueId}/join`, {
       method: 'POST',
@@ -207,18 +228,20 @@ async function handleJoinQueue() {
     });
     const data = await response.json();
     if (response.ok) {
-      state.userId = joinData.user_id;
-      state.ticketNumber = data.ticketNumber;
+      state.userId = data.user_id;
+      state.ticketNumber = data.ticket_number;
       state.position = data.position;
       state.isInQueue = true;
+      state.isCalled = false;
       saveSession();
       connectWebSocket();
       fetchQueueStatus();
+      showToast('Successfully joined the queue!', 'success');
     } else {
-      alert(data.detail || 'Unknown error joining queue');
+      showToast(data.detail || 'Unknown error joining queue', 'error');
     }
   } catch {
-    alert('Network Error: Could not connect to the server.');
+    showToast('Network Error: Could not connect to the server.', 'error');
   } finally {
     state.isLoading = false;
     render();
@@ -226,7 +249,21 @@ async function handleJoinQueue() {
 }
 
 async function handleLeaveQueue() {
-  if (!confirm('Are you sure you want to give up your spot?')) return;
+  if (!state.isConfirmingLeave) {
+    // First click: show confirmation
+    state.isConfirmingLeave = true;
+    render();
+    // Auto-reset after 3 seconds if user doesn't confirm
+    setTimeout(() => {
+      if (state.isConfirmingLeave) {
+        state.isConfirmingLeave = false;
+        render();
+      }
+    }, 3000);
+    return;
+  }
+  // Second click: actually leave
+  state.isConfirmingLeave = false;
   state.isLoading = true;
   render();
 
@@ -243,8 +280,10 @@ async function handleLeaveQueue() {
     state.position = null;
     state.totalWaiting = 0;
     state.isConnected = false;
+    showToast('Left the queue.', 'info');
   } catch (err) {
     console.error(err);
+    showToast('Failed to leave queue.', 'error');
   } finally {
     state.isLoading = false;
     render();
@@ -254,6 +293,17 @@ async function handleLeaveQueue() {
 /* ===== Render ===== */
 function render() {
   const app = document.getElementById('app');
+
+  if (state.isInitializing) {
+    app.innerHTML = renderSkeleton();
+    return;
+  }
+
+  if (state.isCalled) {
+    app.innerHTML = renderCalledView();
+    return;
+  }
+
   const selectedQueue = getSelectedQueue();
   const estimatedWaitMinutes = getEstimatedWaitMinutes();
 
@@ -355,6 +405,54 @@ function render() {
   bindEvents();
 }
 
+function renderSkeleton() {
+  return `
+    <div class="client-app">
+      <div class="client-app__container">
+        <header class="client-header">
+          <div class="client-header__brand">
+            <div class="skeleton" style="width: 28px; height: 28px; border-radius: 4px;"></div>
+            <div>
+              <div class="skeleton" style="width: 100px; height: 14px; margin-bottom: 4px;"></div>
+              <div class="skeleton" style="width: 150px; height: 24px;"></div>
+            </div>
+          </div>
+        </header>
+        <div class="client-app__layout">
+          <section class="queue-info">
+            <div class="skeleton" style="width: 120px; height: 24px; border-radius: 12px; margin-bottom: 16px;"></div>
+            <div class="skeleton" style="width: 80%; height: 32px; margin-bottom: 12px;"></div>
+            <div class="skeleton" style="width: 60%; height: 20px; margin-bottom: 32px;"></div>
+            <div class="queue-info__cards">
+              <div class="skeleton" style="height: 120px; border-radius: 12px;"></div>
+              <div class="queue-info__stats">
+                <div class="skeleton" style="height: 100px; border-radius: 12px;"></div>
+                <div class="skeleton" style="height: 100px; border-radius: 12px;"></div>
+              </div>
+            </div>
+          </section>
+          <div class="join-form">
+            <div class="skeleton" style="height: 400px; border-radius: 12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCalledView() {
+  return `
+    <div class="called-view">
+      <div class="called-view__content">
+        <div class="called-view__icon">${ICONS.activity}</div>
+        <h1 class="called-view__title display-text">It's Your Turn!</h1>
+        <p class="called-view__desc">Please proceed to the counter immediately. Your name has been called by the staff.</p>
+        <button class="called-view__btn" onclick="state.isCalled = false; render();">Done</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderJoinForm() {
   const queueOptions = state.queues.length === 0
     ? '<option value="">No service counters available</option>'
@@ -393,7 +491,7 @@ function renderJoinForm() {
         <label>
           <span class="join-form__field-label">Mobile Number (+91) (Optional)</span>
           <input id="mobile-input" type="tel" value="${escapeHTML(state.mobileNumber)}" placeholder="9876543210" class="join-form__input" pattern="[0-9]{10}" />
-          ${state.mobileNumber && !/^[0-9]{10}$/.test(state.mobileNumber.trim()) ? '<span style="color: #ef4444; font-size: 0.8rem;">Must be 10 digits</span>' : ''}
+          ${state.mobileNumber && !/^[0-9]{10}$/.test(state.mobileNumber.trim()) ? '<span class="mobile-error" style="color: #ef4444; font-size: 0.8rem;">Must be 10 digits</span>' : ''}
         </label>
 
         <label style="display: flex; align-items: flex-start; gap: 0.5rem; margin-top: 0.5rem; margin-bottom: 0.5rem;">
@@ -464,9 +562,9 @@ function renderTicketView(selectedQueue, estimatedWaitMinutes) {
               </div>
             </div>
 
-            <button id="leave-btn" class="ticket-view__leave" ${state.isLoading ? 'disabled' : ''}>
+            <button id="leave-btn" class="ticket-view__leave ${state.isConfirmingLeave ? 'ticket-view__leave--confirming' : ''}" ${state.isLoading ? 'disabled' : ''}>
               ${ICONS.xCircle}
-              Leave Queue
+              ${state.isConfirmingLeave ? 'Tap again to confirm' : 'Leave Queue'}
             </button>
           </div>
         </div>
@@ -494,21 +592,21 @@ function bindEvents() {
   if (nameInput) {
     nameInput.addEventListener('input', (e) => {
       state.name = e.target.value;
-      render();
+      updateJoinFormState();
     });
   }
 
   if (mobileInput) {
     mobileInput.addEventListener('input', (e) => {
       state.mobileNumber = e.target.value;
-      render();
+      updateJoinFormState();
     });
   }
 
   if (consentInput) {
     consentInput.addEventListener('change', (e) => {
       state.hasConsented = e.target.checked;
-      render();
+      updateJoinFormState();
     });
   }
 
@@ -516,25 +614,56 @@ function bindEvents() {
   if (leaveBtn) leaveBtn.addEventListener('click', handleLeaveQueue);
 }
 
+function updateJoinFormState() {
+  const joinBtn = document.getElementById('join-btn');
+  if (!joinBtn) return;
+  
+  const isMobileValid = !state.mobileNumber.trim() || /^[0-9]{10}$/.test(state.mobileNumber.trim());
+  const isDisabled = !state.name.trim() || !state.queueId.trim() || !state.hasConsented || !isMobileValid || state.isLoading || state.queues.length === 0;
+  
+  joinBtn.disabled = isDisabled;
+
+  const mobileInput = document.getElementById('mobile-input');
+  if (mobileInput) {
+    const label = mobileInput.closest('label');
+    let errorSpan = label.querySelector('.mobile-error');
+    if (state.mobileNumber && !/^[0-9]{10}$/.test(state.mobileNumber.trim())) {
+      if (!errorSpan) {
+        errorSpan = document.createElement('span');
+        errorSpan.className = 'mobile-error';
+        errorSpan.style.color = '#ef4444';
+        errorSpan.style.fontSize = '0.8rem';
+        label.appendChild(errorSpan);
+      }
+      errorSpan.textContent = 'Must be 10 digits';
+    } else {
+      if (errorSpan) errorSpan.remove();
+    }
+  }
+}
+
 /* ===== Initialize ===== */
-function init() {
+async function init() {
+  render(); // render skeleton
+  
   const savedSession = loadSession();
   if (savedSession) {
-    state.queueId = savedSession.queueId;
-    state.name = savedSession.name;
     state.userId = savedSession.userId;
+    state.queueId = savedSession.queueId;
     state.ticketNumber = savedSession.ticketNumber || '';
     state.isInQueue = true;
   }
 
+  await fetchQueues();
+  
+  if (state.isInQueue && state.userId) {
+    connectWebSocket();
+    await fetchQueueStatus();
+    await fetchPosition();
+  }
+  
+  state.isInitializing = false;
   render();
-  fetchQueues().then(() => {
-    if (state.isInQueue && state.userId) {
-      connectWebSocket();
-      fetchQueueStatus();
-      fetchPosition();
-    }
-  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

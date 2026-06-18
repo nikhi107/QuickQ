@@ -1,16 +1,24 @@
-# Build stage
-FROM maven:3.9.6-eclipse-temurin-21 AS build
-WORKDIR /app
+FROM maven:3.9.6-eclipse-temurin-21-jammy AS builder
+WORKDIR /build
+
+# Cache dependencies
 COPY pom.xml .
-# Download dependencies
 RUN mvn dependency:go-offline -B
-COPY src ./src
+
 # Build the application
-RUN mvn clean package -Dmaven.test.skip=true
+COPY src ./src
+COPY resources ./resources
+RUN mvn package -DskipTests
 
 # Run stage
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
-COPY --from=build /app/target/*.jar app.jar
+
+# Create a non-root user
+RUN groupadd -r quickq && useradd -r -g quickq quickq
+USER quickq
+
+COPY --from=builder /build/target/*.jar app.jar
+
 EXPOSE 8000
 ENTRYPOINT ["java", "-jar", "app.jar"]

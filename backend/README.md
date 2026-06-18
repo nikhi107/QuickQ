@@ -17,10 +17,14 @@ This is the primary Spring Boot backend for QuickQ. It keeps the same API and We
 - `POST /admin/signup` when enabled by backend config
 - `POST /admin/login`
 - `GET /analytics/history`
+- `GET /analytics/queue/{queueId}`
 - `GET /queues`
+- `POST /admin/queues`
 - `POST /queue/{queueId}/join`
 - `GET /queue/{queueId}/status`
 - `POST /queue/{queueId}/next`
+- `POST /admin/queue/{queueId}/requeue/{userId}`
+- `POST /admin/queue/{queueId}/clear-serving`
 - `POST /queue/{queueId}/leave/{userId}`
 - `GET /queue/{queueId}/position/{userId}`
 - `WS /ws/queue/{queueId}`
@@ -34,7 +38,7 @@ cd backend
 mvn spring-boot:run
 ```
 
-The app listens on `http://localhost:8000`, so the current React frontends can keep using the same `VITE_API_BASE_URL`.
+The app listens on `http://localhost:8000`, so the vanilla HTML/JS frontends can easily connect to it.
 
 ## Environment Variables
 
@@ -55,7 +59,7 @@ The backend now supports environment-driven runtime configuration. The most usef
 
 ## Queue Catalog
 
-Queue metadata is now stored as backend records instead of being hardcoded in the React apps.
+Queue metadata is now stored as backend records instead of being hardcoded in the frontend apps.
 
 On startup, the backend seeds three default queues:
 
@@ -81,3 +85,4 @@ $env:QUICKQ_JWT_SECRET="replace-with-a-long-secret"
 $env:QUICKQ_BOOTSTRAP_ADMIN_PASSWORD="replace-with-a-strong-password"
 mvn spring-boot:run
 ```
+

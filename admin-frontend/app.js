@@ -1,6 +1,22 @@
 /* ===== Configuration ===== */
-const API_BASE = 'http://localhost:8000';
+const API_BASE = window.QUICKQ_CONFIG?.API_BASE || 'http://localhost:8000';
 const WS_BASE = API_BASE.replace(/^http/i, 'ws');
+
+/* ===== Toast Notification ===== */
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  toast.offsetHeight;
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
 
 /* ===== SVG Icons ===== */
 const ICONS = {
@@ -32,6 +48,7 @@ function escapeHTML(str) {
 /* ===== State ===== */
 let state = {
   token: localStorage.getItem('adminToken'),
+  role: localStorage.getItem('adminRole'),
   loginError: '',
   isSignUp: false,
   captchaNum1: 0,
@@ -47,6 +64,7 @@ let state = {
   },
   isManagingQueues: false,
   isCreatingQueue: false,
+  isInitializing: true,
 };
 
 let ws = null;
@@ -181,7 +199,9 @@ async function handleLogin(username, password, isSignUp) {
       if (resp.ok) {
         const data = await resp.json();
         state.token = data.access_token;
+        state.role = data.role;
         localStorage.setItem('adminToken', data.access_token);
+        localStorage.setItem('adminRole', data.role);
         render();
         fetchQueues();
       } else {
@@ -201,7 +221,9 @@ async function handleLogin(username, password, isSignUp) {
       if (resp.ok) {
         const data = await resp.json();
         state.token = data.access_token;
+        state.role = data.role;
         localStorage.setItem('adminToken', data.access_token);
+        localStorage.setItem('adminRole', data.role);
         render();
         fetchQueues();
       } else {
@@ -217,7 +239,9 @@ async function handleLogin(username, password, isSignUp) {
 
 function handleLogout() {
   state.token = null;
+  state.role = null;
   localStorage.removeItem('adminToken');
+  localStorage.removeItem('adminRole');
   state.queues = [];
   state.queueId = '';
   state.status = null;
@@ -241,11 +265,19 @@ async function handleCallNext() {
     if (data.called_user) {
       state.calledUser = data.called_user;
       render();
+      const numElem = document.querySelector('.call-desk__ticket-number');
+      if (numElem) {
+        numElem.classList.remove('call-desk__ticket-number--flash');
+        void numElem.offsetWidth; // trigger reflow
+        numElem.classList.add('call-desk__ticket-number--flash');
+      }
+      showToast('Called next user!', 'success');
     } else {
-      alert('Queue is empty!');
+      showToast('Queue is empty!', 'info');
     }
   } catch (err) {
     console.error('Error calling next:', err);
+    showToast('Failed to call next user.', 'error');
   }
 }
 
@@ -318,12 +350,13 @@ async function handleCreateQueue(formData) {
       state.queueId = data.queue_id;
       state.isManagingQueues = false;
       connectWebSocket();
+      showToast('Queue created successfully!', 'success');
     } else {
       const errData = await resp.json();
-      alert(errData.detail || errData.message || 'Failed to create queue');
+      showToast(errData.detail || errData.message || 'Failed to create queue', 'error');
     }
   } catch {
-    alert('Network error while creating queue.');
+    showToast('Network error while creating queue.', 'error');
   } finally {
     state.isCreatingQueue = false;
     render();
@@ -333,6 +366,11 @@ async function handleCreateQueue(formData) {
 /* ===== Render ===== */
 function render() {
   const app = document.getElementById('app');
+
+  if (state.isInitializing) {
+    app.innerHTML = renderSkeleton();
+    return;
+  }
 
   if (!state.token) {
     app.innerHTML = renderLoginPage();
@@ -345,6 +383,7 @@ function render() {
   const allTimeAvgWaitMinutes = Math.max(0, Math.round(state.analytics.all_time.average_wait_time_seconds / 60));
   const todayAvgWaitMinutes = Math.max(0, Math.round(state.analytics.today.average_wait_time_seconds / 60));
   const todayLabel = getTodayLabel();
+  const isGuest = state.role === 'ROLE_GUEST';
 
   const gradient = `linear-gradient(135deg, ${selectedQueue?.accent_from ?? '#475569'} 0%, ${selectedQueue?.accent_to ?? '#334155'} 100%)`;
 
@@ -392,7 +431,7 @@ function render() {
                   <p class="label">Active Queue</p>
                   <h2 class="queue-selector__name display-text">${selectedQueue?.display_name ? escapeHTML(selectedQueue.display_name) : 'No Queue Configured'}</h2>
                 </div>
-                <button id="manage-queues-btn" class="queue-selector__settings-btn">${ICONS.settings}</button>
+                <button id="manage-queues-btn" class="queue-selector__settings-btn" ${isGuest ? 'disabled title="Guests cannot manage queues"' : ''}>${ICONS.settings}</button>
               </div>
               <p class="queue-selector__subtitle">
                 ${selectedQueue?.admin_subtitle ? escapeHTML(selectedQueue.admin_subtitle) : 'Add queue records in the backend to activate the admin board.'}
@@ -417,14 +456,14 @@ function render() {
                   <div class="call-desk__ticket-number">${escapeHTML(state.calledUser.ticket_number || state.calledUser.user_id.substring(0, 6).toUpperCase())}</div>
                   <div class="call-desk__ticket-name">${escapeHTML(state.calledUser.name)}</div>
                   <div class="call-desk__noshow">
-                    <button id="noshow-btn" class="call-desk__noshow-btn">Dismiss (No-Show)</button>
+                    <button id="noshow-btn" class="call-desk__noshow-btn" ${isGuest ? 'disabled title="Guests cannot clear desk"' : ''}>Dismiss (No-Show)</button>
                   </div>
                 ` : `
                   <div class="call-desk__ticket-empty">No active call yet.</div>
                   <div class="call-desk__ticket-hint">Use the action below when the counter is ready for the next patient.</div>
                 `}
               </div>
-              <button id="call-next-btn" class="call-desk__action" ${totalWaiting === 0 || !state.queueId ? 'disabled' : ''}>
+              <button id="call-next-btn" class="call-desk__action" ${totalWaiting === 0 || !state.queueId || isGuest ? 'disabled' : ''} ${isGuest ? 'title="Guests cannot call next person"' : ''}>
                 ${ICONS.play}
                 Call Next Person
               </button>
@@ -571,6 +610,7 @@ function renderLoginPage() {
 
 function renderQueueBoard(selectedQueue, totalWaiting, todayAvgWaitMinutes) {
   const activeUsers = state.status?.active_users || [];
+  const isGuest = state.role === 'ROLE_GUEST';
 
   if (activeUsers.length === 0) {
     return `
@@ -625,9 +665,9 @@ function renderQueueBoard(selectedQueue, totalWaiting, todayAvgWaitMinutes) {
               <div class="queue-board__user-note-value">${serviceNote}</div>
             </div>
             <div class="queue-board__user-actions">
-              <button class="queue-board__requeue-btn" data-userid="${user.user_id}">Requeue</button>
+              <button class="queue-board__requeue-btn" data-userid="${user.user_id}" ${isGuest ? 'disabled title="Guests cannot requeue"' : ''}>Requeue</button>
               <span>|</span>
-              <button class="queue-board__remove-btn" data-userid="${user.user_id}">Remove</button>
+              <button class="queue-board__remove-btn" data-userid="${user.user_id}" ${isGuest ? 'disabled title="Guests cannot remove"' : ''}>Remove</button>
             </div>
           </div>
         </div>
@@ -682,6 +722,14 @@ function renderManageQueuesModal() {
               <span class="manage-queues__field-label">Subtitle</span>
               <input type="text" required name="admin_subtitle" placeholder="e.g. Prescription pickup" class="manage-queues__input" />
             </label>
+            <label>
+              <span class="manage-queues__field-label">Gradient Accent From</span>
+              <input type="text" required name="accent_from" placeholder="#475569" class="manage-queues__input" pattern="^#[0-9a-fA-F]{6}$" title="Must be a valid hex color code, e.g., #475569" />
+            </label>
+            <label>
+              <span class="manage-queues__field-label">Gradient Accent To</span>
+              <input type="text" required name="accent_to" placeholder="#334155" class="manage-queues__input" pattern="^#[0-9a-fA-F]{6}$" title="Must be a valid hex color code, e.g., #334155" />
+            </label>
             <label class="manage-queues__field--full">
               <span class="manage-queues__field-label">Description</span>
               <input type="text" required name="client_description" placeholder="e.g. For picking up ready prescriptions." class="manage-queues__input" />
@@ -694,6 +742,32 @@ function renderManageQueuesModal() {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  `;
+}
+
+function renderSkeleton() {
+  return `
+    <div class="admin-app">
+      <div class="admin-app__container">
+        <header class="admin-header">
+          <div class="admin-header__brand">
+            <div class="skeleton" style="width: 28px; height: 28px; border-radius: 4px;"></div>
+            <div>
+              <div class="skeleton" style="width: 150px; height: 14px; margin-bottom: 4px;"></div>
+              <div class="skeleton" style="width: 250px; height: 32px;"></div>
+            </div>
+          </div>
+        </header>
+        <main class="admin-app__layout">
+          <aside class="admin-app__sidebar">
+            <div class="skeleton" style="height: 120px; border-radius: 24px; margin-bottom: 24px;"></div>
+            <div class="skeleton" style="height: 250px; border-radius: 24px; margin-bottom: 24px;"></div>
+            <div class="skeleton" style="height: 300px; border-radius: 24px;"></div>
+          </aside>
+          <div class="skeleton" style="height: 600px; border-radius: 32px;"></div>
+        </main>
       </div>
     </div>
   `;
@@ -740,7 +814,7 @@ function bindLoginEvents() {
 
   if (guestBtn) {
     guestBtn.addEventListener('click', () => {
-      handleLogin('admin', 'admin123', false);
+      handleLogin('guest', 'guest123', false);
     });
   }
 }
@@ -801,8 +875,8 @@ function bindDashboardEvents() {
         admin_subtitle: fd.get('admin_subtitle'),
         client_description: fd.get('client_description'),
         counter_label: fd.get('counter_label'),
-        accent_from: '#475569',
-        accent_to: '#334155',
+        accent_from: fd.get('accent_from') || '#475569',
+        accent_to: fd.get('accent_to') || '#334155',
       });
     });
   }
@@ -818,11 +892,15 @@ function bindDashboardEvents() {
 }
 
 /* ===== Initialize ===== */
-function init() {
-  render();
+async function init() {
+  render(); // render skeleton
+  
   if (state.token) {
-    fetchQueues();
+    await fetchQueues();
   }
+  
+  state.isInitializing = false;
+  render();
 }
 
 document.addEventListener('DOMContentLoaded', init);

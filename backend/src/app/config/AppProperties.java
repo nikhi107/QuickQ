@@ -1,0 +1,152 @@
+package app.config;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@ConfigurationProperties(prefix = "app")
+public class AppProperties {
+
+    private final Security security = new Security();
+    private final Cors cors = new Cors();
+    private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
+    private final Admin admin = new Admin();
+    private String timezone = "Asia/Kolkata";
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    public Security getSecurity() {
+        return security;
+    }
+
+    public Cors getCors() {
+        return cors;
+    }
+
+    public BootstrapAdmin getBootstrapAdmin() {
+        return bootstrapAdmin;
+    }
+
+    public Admin getAdmin() {
+        return admin;
+    }
+
+    public static class Security {
+
+        private final Jwt jwt = new Jwt();
+
+        public Jwt getJwt() {
+            return jwt;
+        }
+    }
+
+    public static class Jwt {
+
+        private String secret = "";
+        private long expirationMinutes = 60;
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+
+        public long getExpirationMinutes() {
+            return expirationMinutes;
+        }
+
+        public void setExpirationMinutes(long expirationMinutes) {
+            this.expirationMinutes = expirationMinutes;
+        }
+    }
+
+    public static class Cors {
+
+        private List<String> allowedOriginPatterns = new ArrayList<>(
+            List.of(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:5174",
+                "http://127.0.0.1:5174"
+            )
+        );
+
+        public List<String> getAllowedOriginPatterns() {
+            return allowedOriginPatterns;
+        }
+
+        public void setAllowedOriginPatterns(List<String> allowedOriginPatterns) {
+            this.allowedOriginPatterns = allowedOriginPatterns;
+        }
+    }
+
+    public static class BootstrapAdmin {
+
+        private boolean enabled = true;
+        private String username = "admin";
+        private String password = "admin123";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+    }
+
+    public static class Admin {
+
+        private final Signup signup = new Signup();
+
+        public Signup getSignup() {
+            return signup;
+        }
+    }
+
+    public static class Signup {
+
+        private boolean enabled = false;
+        private String inviteCode = "";
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getInviteCode() {
+            return inviteCode;
+        }
+
+        public void setInviteCode(String inviteCode) {
+            this.inviteCode = inviteCode;
+        }
+    }
+}

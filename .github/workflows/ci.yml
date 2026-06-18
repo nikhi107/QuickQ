@@ -1,0 +1,44 @@
+name: QuickQ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    # We need a Redis service for the tests to pass since the QueueService relies on Redis.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build and run tests
+      working-directory: ./backend
+      run: mvn -B test
+      env:
+        QUICKQ_REDIS_HOST: localhost
+        QUICKQ_REDIS_PORT: 6379
+        QUICKQ_SQLITE_PATH: ./quickq-test.db
+        QUICKQ_JWT_SECRET: test_secret_key_for_ci_minimum_32_chars_ok
+        QUICKQ_BOOTSTRAP_ADMIN_USERNAME: testadmin
+        QUICKQ_BOOTSTRAP_ADMIN_PASSWORD: testpassword
